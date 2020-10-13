@@ -1,0 +1,85 @@
+#!/usr/bin/python3
+
+# Copyright 2020 Dara Poon and the University of British Columbia
+
+import argparse
+from collections import namedtuple
+from glob import glob
+import os
+import pwd
+import re
+import sys
+import mailrules.forward_to_sieve
+import mailrules.procmailrc
+import mailrules.proc_to_sieve
+import mailrules.sieve
+
+def parse_args(args=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-u', '--user',
+        type=str, required=True,
+        help='username whose configuration to convert',
+    )
+    parser.add_argument('--to-user',
+        nargs=1,
+        help='account to which the output should be saved',
+    )
+    return parser.parse_args(args)
+
+def error(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+def conversion_context(opts):
+    user = opts.user
+    try:
+        homedir = pwd.getpwnam(user).pw_dir
+    except KeyError:
+        error("No such user: {}".format(user))
+    forward_paths = glob(os.path.join(homedir, '.forward')) + list(filter(
+        lambda path: re.fullmatch(r'\.forward\+[A-Za-z0-9_]+', os.path.basename(path)),
+        glob(os.path.join(homedir, '.forward+*'))
+    ))
+    procmailrc_path = os.path.join(homedir, '.procmailrc')
+    if not os.path.isfile(procmailrc_path):
+        procmailrc_path = None
+    return namedtuple('ConversionContext',
+            'user homedir forward_paths procmailrc_path procmail_context')(
+        user,
+        homedir,
+        {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
+        procmailrc_path,
+        mailrules.proc_to_sieve.ProcmailContext(env={
+            'LOGNAME': user,
+            'HOME': homedir,
+            'MAILDIR': os.path.join(homedir, 'Maildir'),
+            'DEFAULT': os.path.join(homedir, 'Maildir') + '/',
+            'ORGMAIL': os.path.join(homedir, 'Maildir') + '/',
+        }),
+    )
+
+def main():
+    conv = conversion_context(parse_args())
+    out = mailrules.sieve.Script()
+
+    for cmd in mailrules.forward_to_sieve.ForwardFiles(conv.forward_paths, conv.procmail_context):
+        out.add_command(cmd)
+
+    if conv.procmailrc_path:
+        procmail_parser = mailrules.procmailrc.Parser(conv.procmailrc_path)
+        with open(conv.procmailrc_path) as procmailrc:
+            for cmd in mailrules.proc_to_sieve.Procmailrc(
+                        list(procmail_parser.parse_rules(procmail_parser.numbered_line_iter(procmailrc))),
+                        conv.procmail_context
+                    ):
+                out.add_command(cmd)
+
+    sieve_script_text = str(out)
+    if sieve_script_text:
+        print('{} {} {}'.format('#' * 20, conv.user, '#' * 20))
+        print(sieve_script_text)
+
+    sys.exit(1 if mailrules.proc_to_sieve.FIXME.instances else 0)
+
+if __name__ == '__main__':
+    main()

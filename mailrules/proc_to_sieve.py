@@ -215,6 +215,7 @@ class ProcmailContext:
     def __init__(self, env={}, parent=None, chain_type=None):
         self.env = dict(env)
         self.parent = parent
+        self._initial = self if parent is None else parent.initial
         self.chain_type = chain_type
 
     def setenv(self, variable, value):
@@ -244,6 +245,10 @@ class ProcmailContext:
     @property
     def nest_level(self):
         return 0 if not self.parent else 1 + self.parent.nest_level
+
+    @property
+    def initial(self):
+        return self._initial
 
     def context_chain(self, test, actions):
         #print("context chain self={} test={} actions={}".format(self, test, actions))
@@ -326,21 +331,17 @@ def Procmailrc(procmail_rules, context):
         if chunk:
             yield chunk_type, chunk
 
-    out = sieve.Script()
     procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)
     for chunk_type, chunk in rule_chunks(procmail_rule_iter):
         #print(chunk_type, chunk)
         if chunk_type == 'preamble':
-            for cmd in ProcmailrcGeneral(chunk, context):
-                out.add_command(cmd)
+            yield from ProcmailrcGeneral(chunk, context)
         else:
             commands = list(ProcmailrcGeneral(chunk, ProcmailContext(parent=context, chain_type=chunk_type)))
             if not commands:
-                out.add_command(FIXME('OUT OF COMMANDS?'))
+                yield FIXME('OUT OF COMMANDS?')
             else:
-                for cmd in commands:
-                    out.add_command(cmd)
-    return out
+                yield from commands
 
 
 # TODO:
