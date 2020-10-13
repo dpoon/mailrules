@@ -66,13 +66,10 @@ def main():
         out.add_command(cmd)
 
     if conv.procmailrc_path:
-        procmail_parser = mailrules.procmailrc.Parser(conv.procmailrc_path)
-        with open(conv.procmailrc_path) as procmailrc:
-            for cmd in mailrules.proc_to_sieve.Procmailrc(
-                        list(procmail_parser.parse_rules(procmail_parser.numbered_line_iter(procmailrc))),
-                        conv.procmail_context
-                    ):
-                out.add_command(cmd)
+        for cmd in mailrules.proc_to_sieve.Procmailrc(
+                    conv.procmailrc_path, conv.procmail_context
+                ):
+            out.add_command(cmd)
 
     sieve_script_text = str(out)
     if sieve_script_text:

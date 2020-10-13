@@ -315,7 +315,7 @@ def ProcmailrcGeneral(procmail_rules, context):
         else:
             raise ValueError(rule)
 
-def Procmailrc(procmail_rules, context):
+def Procmailrc(procmailrc_path, context):
     def rule_chunks(procmail_rule_iter):
         chunk_type, chunk = 'preamble', []
         for rule in procmail_rule_iter:
@@ -331,7 +331,12 @@ def Procmailrc(procmail_rules, context):
         if chunk:
             yield chunk_type, chunk
 
+    with open(procmailrc_path) as f:
+        parser = procmailrc.Parser(procmailrc_path)
+        procmail_rules = list(parser.parse_rules(parser.numbered_line_iter(f)))
+
     procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)
+
     for chunk_type, chunk in rule_chunks(procmail_rule_iter):
         #print(chunk_type, chunk)
         if chunk_type == 'preamble':
