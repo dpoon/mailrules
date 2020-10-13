@@ -187,9 +187,7 @@ def Test(recipe_flags, recipe_conditions, context):
 
 def Action(flags, action, context):
     def mailbox_name(s):
-        if context.initial.getenv('MAILDIR') + '/' == s:
-            return 'inbox'
-        return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/\.?(.*?)/?$', r'\g<1>', s)
+        return re.sub('^' + re.escape(context.initial.getenv('ORGMAIL')) + '(.*?)/?$', r'INBOX\g<1>', s)
 
     if isinstance(action, list) and len(action) == 1:
         if isinstance(action[0], procmailrc.Assignment):
