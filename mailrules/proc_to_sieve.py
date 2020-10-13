@@ -171,7 +171,9 @@ def Test(recipe_flags, recipe_conditions, context):
 
 def Action(flags, action, context):
     def mailbox_name(s):
-        return re.sub(r'^\$HOME/Maildir/\.?(.*?)/?$', r'\g<1>', s)
+        if context.initial.getenv('MAILDIR') + '/' == s:
+            return 'inbox'
+        return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/\.?(.*?)/?$', r'\g<1>', s)
 
     if isinstance(action, list) and len(action) == 1:
         if isinstance(action[0], procmailrc.Assignment):
@@ -186,7 +188,7 @@ def Action(flags, action, context):
             if action.destination == '/dev/null':
                 yield sieve.DiscardAction()
                 return
-            elif action.destination in ('${DEFAULT}/', '${MAILDIR}/'):
+            elif context.interpolate(action.destination) == context.initial.getenv('ORGMAIL'):
                 yield sieve.KeepAction()
                 return
         copy = flags.get('c', False)
@@ -218,13 +220,13 @@ class ProcmailContext:
     def setenv(self, variable, value):
         self.env[variable] = self.interpolate(value)
 
-    def getenv(self, variable):
+    def getenv(self, variable, default=''):
         if variable in self.env:
             return self.env[variable]
         elif self.parent:
-            return self.parent.getenv(variable)
+            return self.parent.getenv(variable, default)
         else:
-            return ''
+            return default
 
     def interpolate(self, s):
         def subst_handler(match):
