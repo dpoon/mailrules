@@ -167,7 +167,8 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
     def requires(self):
         yield 'envelope'
         # TODO: Plugin system?
-        if self.address_part == ':subaddress':
+        if self.address_part == ':detail':
+            # RFC 5233: Subaddress extension
             yield 'subaddress'
         yield 'variables'
 
