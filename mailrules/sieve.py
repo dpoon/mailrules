@@ -87,6 +87,7 @@ class FileintoAction(namedtuple('Fileinto', 'mailbox copy'), Command):
         return super().__new__(cls, mailbox, copy)
 
     def requires(self):
+        yield 'fileinto'
         if self.copy: yield 'copy'
 
     def __str__(self):
