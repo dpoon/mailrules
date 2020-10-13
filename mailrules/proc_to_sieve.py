@@ -208,7 +208,7 @@ def Action(flags, action, context):
                 yield sieve.KeepAction()
                 return
         copy = flags.get('c', False)
-        yield sieve.FileintoAction(mailbox_name(context.interpolate(action.destination)), copy=copy)
+        yield sieve.FileintoAction(mailbox_name(context.interpolate(action.destination)), copy=copy, create=True)
     elif isinstance(action, procmailrc.Forward):
         for dest in action.destinations[:-1]:
             yield sieve.RedirectAction(context.interpolate(dest), copy=True)

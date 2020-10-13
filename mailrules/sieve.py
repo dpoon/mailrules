@@ -81,17 +81,23 @@ class StopControl(Command):
     def __str__(self):
         return 'stop;'
 
-class FileintoAction(namedtuple('Fileinto', 'mailbox copy'), Command):
-    """RFC 5228 Sec 4.1 and RFC 3894 Sec 3"""
-    def __new__(cls, mailbox, copy=False):
-        return super().__new__(cls, mailbox, copy)
+class FileintoAction(namedtuple('Fileinto', 'mailbox copy create'), Command):
+    """RFC 5228 Sec 4.1, RFC 3894 Sec 3, and RFC 5490 Sec 3.2"""
+    def __new__(cls, mailbox, copy=False, create=False):
+        return super().__new__(cls, mailbox, copy, create)
 
     def requires(self):
         yield 'fileinto'
         if self.copy: yield 'copy'
+        if self.create: yield 'mailbox'
 
     def __str__(self):
-        return 'fileinto{1} {0};'.format(quote(self.mailbox), ' :copy' if self.copy else '')
+        s = 'fileinto'
+        if self.copy:
+            s += ' :copy'
+        if self.create:
+            s += ' :create'
+        return s + ' ' + quote(self.mailbox) + ';'
 
 class RedirectAction(namedtuple('Redirect', 'address copy'), Command):
     """RFC 5228 Sec 4.2 and RFC 3894 Sec 3"""
