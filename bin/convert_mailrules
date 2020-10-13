@@ -20,9 +20,9 @@ def parse_args(args=None):
         type=str, required=True,
         help='username whose configuration to convert',
     )
-    parser.add_argument('--to-user',
-        nargs=1,
-        help='account to which the output should be saved',
+    parser.add_argument('-p', '--provenance-comments',
+        action='store_true',
+        help='output comments about the source filenames and their modification times',
     )
     return parser.parse_args(args)
 
@@ -44,7 +44,7 @@ def conversion_context(opts):
     if not os.path.isfile(procmailrc_path):
         procmailrc_path = None
     return namedtuple('ConversionContext',
-            'user homedir forward_paths procmailrc_path procmail_context')(
+            'user homedir forward_paths procmailrc_path procmail_context provenance_comments')(
         user,
         homedir,
         {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
@@ -56,18 +56,23 @@ def conversion_context(opts):
             'DEFAULT': os.path.join(homedir, 'Maildir') + '/',
             'ORGMAIL': os.path.join(homedir, 'Maildir') + '/',
         }),
+        opts.provenance_comments
     )
 
 def main():
     conv = conversion_context(parse_args())
     out = mailrules.sieve.Script()
 
-    for cmd in mailrules.forward_to_sieve.ForwardFiles(conv.forward_paths, conv.procmail_context):
+    for cmd in mailrules.forward_to_sieve.ForwardFiles(
+                conv.forward_paths, conv.procmail_context,
+                conv.provenance_comments
+            ):
         out.add_command(cmd)
 
     if conv.procmailrc_path:
         for cmd in mailrules.proc_to_sieve.Procmailrc(
-                    conv.procmailrc_path, conv.procmail_context
+                    conv.procmailrc_path, conv.procmail_context,
+                    conv.provenance_comments
                 ):
             out.add_command(cmd)
 

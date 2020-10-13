@@ -1,7 +1,10 @@
 # Copyright 2020 Dara Poon and the University of British Columbia
 
 from collections import namedtuple
+from datetime import datetime
+import dateutil.tz
 from itertools import chain, product, repeat, takewhile
+import os
 import re
 import mailrules.procmailrc as procmailrc
 import mailrules.sieve as sieve
@@ -315,7 +318,7 @@ def ProcmailrcGeneral(procmail_rules, context):
         else:
             raise ValueError(rule)
 
-def Procmailrc(procmailrc_path, context):
+def Procmailrc(procmailrc_path, context, provenance_comments=False):
     def rule_chunks(procmail_rule_iter):
         chunk_type, chunk = 'preamble', []
         for rule in procmail_rule_iter:
@@ -334,6 +337,13 @@ def Procmailrc(procmailrc_path, context):
     with open(procmailrc_path) as f:
         parser = procmailrc.Parser(procmailrc_path)
         procmail_rules = list(parser.parse_rules(parser.numbered_line_iter(f)))
+        if provenance_comments:
+            mtime = os.fstat(f.fileno()).st_mtime
+            tz = dateutil.tz.gettz(os.getenv('TZ'))
+            yield sieve.Comment('Converted from {} ({})'.format(
+                procmailrc_path,
+                datetime.fromtimestamp(mtime, tz=dateutil.tz.gettz()).strftime('%Y-%m-%d %H:%M:%S %z')
+            ))
 
     procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)
 
