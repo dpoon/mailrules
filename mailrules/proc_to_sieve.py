@@ -1,13 +1,18 @@
 # Copyright 2020 Dara Poon and the University of British Columbia
 
 from collections import namedtuple
-from datetime import datetime
-import dateutil.tz
+from datetime import datetime, timezone
 from itertools import chain, product, repeat, takewhile
 import os
 import re
 import mailrules.procmailrc as procmailrc
 import mailrules.sieve as sieve
+
+try:
+    import dateutil.tz
+    tz = dateutil.tz.gettz(os.getenv('TZ'))
+except ImportError:
+    tz = timezone.utc
 
 class RecipeMatch(namedtuple('RecipeMatch', 'flags conditions action')):
     def __new__(cls, flags=None, conditions=None, action=None):
@@ -339,10 +344,9 @@ def Procmailrc(procmailrc_path, context, provenance_comments=False):
         procmail_rules = list(parser.parse_rules(parser.numbered_line_iter(f)))
         if provenance_comments:
             mtime = os.fstat(f.fileno()).st_mtime
-            tz = dateutil.tz.gettz(os.getenv('TZ'))
             yield sieve.Comment('Converted from {} ({})'.format(
                 procmailrc_path,
-                datetime.fromtimestamp(mtime, tz=dateutil.tz.gettz()).strftime('%Y-%m-%d %H:%M:%S %z')
+                datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
             ))
 
     procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)

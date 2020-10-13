@@ -1,12 +1,18 @@
 # Copyright 2020 Dara Poon and the University of British Columbia
 
-from datetime import datetime
+from datetime import datetime, timezone
 import dateutil.tz
 from itertools import chain
 import os
 import re
 import mailrules.proc_to_sieve as proc_to_sieve
 import mailrules.sieve as sieve
+
+try:
+    import dateutil.tz
+    tz = dateutil.tz.gettz(os.getenv('TZ'))
+except ImportError:
+    tz = timezone.utc
 
 """
        Users  can  control  delivery  of  their  own  mail  by  setting up .forward files in their home directory.  Lines in per-user .forward files have the same syntax as the
@@ -103,7 +109,7 @@ def ForwardFile(path, extension, context, provenance_comments=False):
             provenance = [
                 sieve.Comment('Converted from {} ({})'.format(
                     path,
-                    datetime.fromtimestamp(mtime, tz=dateutil.tz.gettz()).strftime('%Y-%m-%d %H:%M:%S %z')
+                    datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
                 ))
             ]
 
