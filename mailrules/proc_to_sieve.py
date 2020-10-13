@@ -52,12 +52,20 @@ HAS_COND_MAIL_EXTENSION = lambda recipe: RecipeMatch(conditions=[
     ])(recipe)
 
 
-class FIXME(sieve.Comment):
+class FIXME(namedtuple('FIXME', 'problem placeholder'), sieve.Command):
     instances = 0
 
-    def __new__(cls, *args):
+    def __new__(cls, problem, placeholder=None):
         cls.instances += 1
-        return super().__new__(cls, 'FIXME(' + ' '.join(str(a) for a in args) + ')')
+        return super().__new__(cls, problem, placeholder)
+
+    def requires(self):
+        if self.placeholder:
+            yield from self.placeholder.requires()
+
+    def __str__(self):
+        s = str(self.placeholder) + ' ' if self.placeholder else ''
+        return s + str(sieve.Comment('FIXME: {}'.format(self.problem)))
 
 def Test(recipe_flags, recipe_conditions, context):
     def analyze_rhs(s):
@@ -158,7 +166,7 @@ def Test(recipe_flags, recipe_conditions, context):
                 (a + b for a, b in product(['', 'Original-', 'Resent-'], ['To', 'Cc', 'Bcc'])),
                 ['X-Envelope-To', 'Apparently-To', 'Apparently-Resent-To']
             )), rhs, rel)
-        return FIXME(r)
+        return FIXME(r, placeholder=sieve.FalseTest())
 
     assert isinstance(recipe_conditions, list) and len(recipe_conditions)
     if len(recipe_conditions) > 1:
@@ -167,11 +175,11 @@ def Test(recipe_flags, recipe_conditions, context):
     test = (
         header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
             if cond.get('regexp') and recipe_flags.get('H', True)
-        else FIXME(recipe_flags, recipe_conditions)
+        else FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
     )
     # Apply modifiers to the test
     if cond.get('weight'):
-        test = FIXME(recipe_flags, recipe_conditions)
+        test = FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
     if cond.get('invert'):
         test = sieve.NotTest(test)
     return test
