@@ -4,6 +4,7 @@
 
 from itertools import groupby
 import fileinput
+import sys
 import mailrules.procmailrc as procmailrc
 import mailrules.proc_to_sieve as proc_to_sieve
 
@@ -25,6 +26,7 @@ def main():
     for filename, lines in groupby(it, lambda line: it.filename()):
         print('\n{0} {1} {2}'.format('#' * 10, filename, '=' * 10))
         print(convert_procmailrc(filename, lines))
+    sys.exit(1 if proc_to_sieve.FIXME.instances else 0)
 
 if __name__ == '__main__':
     main()

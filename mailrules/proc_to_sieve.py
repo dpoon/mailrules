@@ -45,7 +45,10 @@ HAS_COND_MAIL_EXTENSION = lambda recipe: RecipeMatch(conditions=[
 
 
 class FIXME(sieve.Comment):
+    instances = 0
+
     def __new__(cls, *args):
+        cls.instances += 1
         return super().__new__(cls, 'FIXME(' + ' '.join(str(a) for a in args) + ')')
 
 def Test(recipe_flags, recipe_conditions, context):
