@@ -29,10 +29,17 @@ class Command:
         return
         yield
 
+    @property
+    def name(self):
+        return ''
+
 class Comment(namedtuple('Comment', 'text'), Command):
     """RFC 5228 Sec 2.3"""
     def __str__(self):
-        return '/* ' + self.text.replace('*/', '* /') + ' */'
+        if '\n' in self.text:
+            return '/* ' + self.text.replace('*/', '* /') + ' */'
+        else:
+            return '# ' + self.text
 
 class IfControl(namedtuple('IfControl', 'test command'), Command):
     """RFC 5228 Sec 3.1"""
@@ -40,6 +47,10 @@ class IfControl(namedtuple('IfControl', 'test command'), Command):
         yield from self.test.requires()
         for c in make_list(self.command):
             yield from c.requires()
+
+    @property
+    def name(self):
+        return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
         return 'if {0} {{\n    {1}\n}}'.format(
@@ -54,6 +65,10 @@ class ElsifControl(namedtuple('ElsifControl', 'test command'), Command):
         for c in make_list(self.command):
             yield from c.requires()
 
+    @property
+    def name(self):
+        return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
+
     def __str__(self):
         return 'elsif {0} {{\n    {1}\n}}'.format(
             self.test,
@@ -65,6 +80,10 @@ class ElseControl(namedtuple('ElseControl', 'command'), Command):
     def requires(self):
         for c in make_list(self.command):
             yield from c.requires()
+
+    @property
+    def name(self):
+        return next(filter(None, (cmd.name for cmd in make_list(self.command))), '')
 
     def __str__(self):
         return 'else {{\n    {0}\n}}'.format(
@@ -91,6 +110,10 @@ class FileintoAction(namedtuple('Fileinto', 'mailbox copy create'), Command):
         if self.copy: yield 'copy'
         if self.create: yield 'mailbox'
 
+    @property
+    def name(self):
+        return re.sub(r'^INBOX\.', '', self.mailbox)
+
     def __str__(self):
         s = 'fileinto'
         if self.copy:
@@ -107,16 +130,28 @@ class RedirectAction(namedtuple('Redirect', 'address copy'), Command):
     def requires(self):
         if self.copy: yield 'copy'
 
+    @property
+    def name(self):
+        return self.address
+
     def __str__(self):
         return 'redirect{1} {0};'.format(quote(self.address), ' :copy' if self.copy else '')
 
 class KeepAction(Command):
     """RFC 5228 Sec 4.2"""
+    @property
+    def name(self):
+        return 'Keep'
+
     def __str__(self):
         return 'keep;'
 
 class DiscardAction(Command):
     """RFC 5228 Sec 4.2"""
+    @property
+    def name(self):
+        return 'Discard'
+
     def __str__(self):
         return 'discard;'
 
@@ -129,6 +164,10 @@ class AddressTest(namedtuple('AddressTest', 'header key match_type address_part 
         # TODO
         return
         yield
+
+    @property
+    def name(self):
+        return self.key
 
     def __str__(self):
         s = 'address'
@@ -151,6 +190,10 @@ class AllofTest(namedtuple('AllofTest', 'tests'), Command):
         for c in self.tests:
             yield from c.requires()
 
+    @property
+    def name(self):
+        return next(filter(None, (test.name for test in self.tests)))
+
     def __str__(self):
         return 'allof(' + ', '.join(str(t) for t in self.tests) + ')'
 
@@ -162,6 +205,10 @@ class AnyofTest(namedtuple('AnyofTest', 'tests'), Command):
     def requires(self):
         for c in self.tests:
             yield from c.requires()
+
+    @property
+    def name(self):
+        return next(filter(None, (test.name for test in self.tests)))
 
     def __str__(self):
         return 'anyof(' + ', '.join(str(t) for t in self.tests) + ')'
@@ -178,6 +225,10 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
             # RFC 5233: Subaddress extension
             yield 'subaddress'
         yield 'variables'
+
+    @property
+    def name(self):
+        return self.key
 
     def __str__(self):
         s = 'envelope'
@@ -212,6 +263,10 @@ class HeaderTest(namedtuple('HeaderTest', 'header key match_type comparator'), C
         return
         yield
 
+    @property
+    def name(self):
+        return '{} {}'.format(self.header, self.key)
+
     def __str__(self):
         s = 'header'
         if self.comparator != 'i;ascii-casemap':
@@ -226,6 +281,10 @@ class NotTest(namedtuple('NotTest', 'test'), Command):
     """RFC 5228 Sec 5.8"""
     def requires(self):
         yield from self.test.requires()
+
+    @property
+    def name(self):
+        return 'not ' + self.test.name if self.test.name else ''
 
     def __str__(self):
         return 'not ' + str(self.test)
@@ -268,6 +327,10 @@ class VacationAction(namedtuple('VacationAction', 'reason days seconds subject f
 
     def requires(self):
         yield 'vacation-seconds' if self.seconds is not None else 'vacation'
+
+    @property
+    def name(self):
+        return 'Vacation'
 
     def __str__(self):
         s = 'vacation'
@@ -339,6 +402,9 @@ class Script(Command):
             yield from c.requires()
 
     def add_command(self, command):
+        name = command.name
+        if name:
+            self.commands.append(Comment('rule:[{}]'.format(name)))
         self.commands.append(command)
 
     def __str__(self):
