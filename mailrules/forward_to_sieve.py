@@ -114,7 +114,7 @@ def ForwardFile(path, extension, context, provenance_comments=False):
             ]
 
     expansion = re.findall(r'(?:"(?:\\.|[^"])*"|[^,\s])+', contents)
-    test = sieve.EnvelopeTest('to', extension, address_part=':detail') if extension else sieve.TrueTest()
+    test = sieve.AddressTest('Bcc', extension, address_part=':detail') if extension else sieve.TrueTest()
 
 
     yield from context.context_chain(

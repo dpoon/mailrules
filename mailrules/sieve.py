@@ -162,8 +162,9 @@ class AddressTest(namedtuple('AddressTest', 'header key match_type address_part 
 
     def requires(self):
         # TODO
-        return
-        yield
+        if self.address_part == ':detail':
+            # RFC 5233: Subaddress extension
+            yield 'subaddress'
 
     @property
     def name(self):
