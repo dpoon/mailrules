@@ -72,9 +72,9 @@ def mailbox_name(s, context):
     s = re.sub('^~/', context.initial.getenv('HOME') + '/', s)
     if s.startswith(context.initial.getenv('MAILDIR')):
         if context.initial.getenv('MAILDIR') + '/' == s:
-            return 'inbox'
+            return 'INBOX'
         else:
-            return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/\.?(.*?)/?$', r'\g<1>', s)
+            return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/(.*?)/?$', r'INBOX\g<1>', s)
     return None
 
 
