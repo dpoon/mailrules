@@ -55,7 +55,7 @@ class IfControl(namedtuple('IfControl', 'test command'), Command):
     def __str__(self):
         return 'if {0} {{\n    {1}\n}}'.format(
             self.test,
-            '\n    '.join(str(c) for c in make_list(self.command))
+            '\r\n    '.join(str(c) for c in make_list(self.command))
         )
 
 class ElsifControl(namedtuple('ElsifControl', 'test command'), Command):
@@ -72,7 +72,7 @@ class ElsifControl(namedtuple('ElsifControl', 'test command'), Command):
     def __str__(self):
         return 'elsif {0} {{\n    {1}\n}}'.format(
             self.test,
-            '\n    '.join(str(c) for c in make_list(self.command))
+            '\r\n    '.join(str(c) for c in make_list(self.command))
         )
 
 class ElseControl(namedtuple('ElseControl', 'command'), Command):
@@ -87,7 +87,7 @@ class ElseControl(namedtuple('ElseControl', 'command'), Command):
 
     def __str__(self):
         return 'else {{\n    {0}\n}}'.format(
-            '\n    '.join(str(c) for c in make_list(self.command))
+            '\r\n    '.join(str(c) for c in make_list(self.command))
         )
 
 class RequireControl(namedtuple('RequireControl', 'extension'), Command):
@@ -420,5 +420,5 @@ class Script(Command):
         if out and str(out[-1]) == 'keep;':
             # RFC 5228 Sec 2.10.2: final keep is superfluous
             out.pop()
-        return '\n'.join('{0}'.format(command) for command in out)
+        return '\r\n'.join('{0}'.format(command) for command in out)
 
