@@ -174,13 +174,16 @@ def Test(recipe_flags, recipe_conditions, context):
     if len(recipe_conditions) > 1:
         return sieve.AllofTest(*[Test(recipe_flags, [t], context) for t in recipe_conditions])
     cond = recipe_conditions[0]
-    test = (
-        header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
-            if cond.get('regexp') and recipe_flags.get('H', True)
-        else parse_cmdline(context, cond.get('program_exitcode'))
-            if cond.get('program_exitcode')
-        else FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
-    )
+
+    test = FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
+    if cond.get('regexp') and recipe_flags.get('H', True):
+        test = header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
+    elif cond.get('program_exitcode'):
+        try:
+            test = parse_cmdline(context, cond.get('program_exitcode'))
+        except ShellCommandException:
+            pass    # Fall back to the FIXME
+
     # Apply modifiers to the test
     if cond.get('weight'):
         test = FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())

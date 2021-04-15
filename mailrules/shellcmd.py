@@ -28,14 +28,18 @@ class SilentArgumentParser(ArgumentParser):
 ######################################################################
 
 def IsAway(procmail_context, args):
-    with open(procmail_context.resolve_path('bin/is_away')) as f:
-        assignments = [re.match(r'^\s*(?P<var>[a-z][a-z0-9_]*)=(?P<val>[^#\s]*)', line) for line in f]
-        assignments = {m.group('var'): m.group('val') for m in assignments if m}
     try:
+        # Find start_away_msg=... and end_away_msg=... statements in script
+        with open(procmail_context.resolve_path('bin/is_away')) as f:
+            assignments = [
+                re.match(r'^\s*(?P<var>[a-z][a-z0-9_]*)=(?P<val>[^#\s]*)', line)
+                for line in f
+            ]
+        assignments = {m.group('var'): m.group('val') for m in assignments if m}
         start = datetime.fromtimestamp(int(assignments['start_away_msg']))
         end = datetime.fromtimestamp(int(assignments['end_away_msg']))
-    except (KeyError, ValueError):
-        raise ShellCommandException("bin/is_away: Could not detect start and end times")
+    except (KeyError, OSError, ValueError):
+        raise ShellCommandException("bin/is_away: Could not detect start and end times") from None
     return sieve.AllofTest(
         sieve.CurrentDateTest('iso8601', start.isoformat(), match_type=':value "ge"'),
         sieve.CurrentDateTest('iso8601', end.isoformat(), match_type=':value "lt"'),
@@ -47,7 +51,9 @@ def Vacation(procmail_context, args):
     """
     Support for emulating the vacation(1) command.
     """
-    VacationMessage = namedtuple('VacationMessage', 'reason subject from_addr mime')
+    class VacationMessage(namedtuple('VacationMessage', 'reason subject from_addr mime')):
+        def __new__(cls, reason, subject=None, from_addr=None, mime=False):
+            return super().__new__(cls, reason, subject, from_addr, mime)
 
     class VacationMessageReader:
         def __init__(self, msg_path):
@@ -83,7 +89,14 @@ def Vacation(procmail_context, args):
         help='Set the envelope sender of the reply message to "<>"')
 
     invocation = p.parse_args(args)
-    msg = invocation.read_vacation_msg()
+    try:
+        msg = invocation.read_vacation_msg()
+    except OSError:
+        msg = VacationMessage(
+            'I will not be reading my mail for a while. '
+            'Your mail concerning "$SUBJECT" '
+            'will be read when I return.',
+        )
 
     reason = msg.reason.replace('$SUBJECT', '${1}')
     subject = msg.subject.replace('$SUBJECT', '${1}') if msg.subject else None
