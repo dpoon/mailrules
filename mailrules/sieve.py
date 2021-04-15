@@ -8,7 +8,7 @@ import re
 def quote(s):
     """RFC 5228 Sec 2.4.2"""
     if '\n' not in s:
-        return '"{0}"'.format(re.sub(r'[\"]', '\\\g<0>', s))
+        return '"{0}"'.format(re.sub(r'[\"]', r'\\\g<0>', s))
     return 'text:\r\n' + re.sub(r'^\.', '..', s, flags=re.MULTILINE) + '\r\n.\r\n'
 
 def string_list(obj):
