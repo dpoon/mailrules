@@ -1,11 +1,13 @@
-# Copyright 2020 Dara Poon and the University of British Columbia
+# Copyright 2020-2021 Dara Poon and the University of British Columbia
 
 from collections import namedtuple
 from datetime import datetime, timezone
 from itertools import chain, product, repeat, takewhile
 import os
 import re
+import shlex
 import mailrules.procmailrc as procmailrc
+from mailrules.shellcmd import parse_cmdline, ShellCommandException
 import mailrules.sieve as sieve
 
 try:
@@ -212,12 +214,11 @@ def Action(flags, action, context):
             yield sieve.RedirectAction(context.interpolate(dest), copy=True)
         yield sieve.RedirectAction(context.interpolate(action.destinations[-1]), copy=flags.get('c', False))
     elif isinstance(action, procmailrc.Pipe):
-        if re.match(r'^vacation\b', action.command):
-            vacation_args = {'FIXME': context.interpolate(action.command)}
-            yield sieve.VacationAction('FIXME: reason {0!r}'.format(vacation_args))
+        try:
+            yield parse_cmdline(context, action.command)
             if not flags.get('c', False):
                 yield sieve.DiscardAction()
-        else:
+        except ShellCommandException:
             yield FIXME(action)
     elif isinstance(action, list):
         yield from ProcmailrcGeneral(action, ProcmailContext(parent=context))
@@ -226,11 +227,13 @@ def Action(flags, action, context):
 
 
 class ProcmailContext:
-    def __init__(self, env={}, parent=None, chain_type=None):
+    def __init__(self, env={}, parent=None, chain_type=None, user=None):
         self.env = dict(env)
         self.parent = parent
         self._initial = self if parent is None else parent.initial
         self.chain_type = chain_type
+        assert(user or parent.user)
+        self.user = user or parent.user
 
     def setenv(self, variable, value):
         self.env[variable] = self.interpolate(value)
@@ -255,6 +258,17 @@ class ProcmailContext:
             subst_handler,
             s
         )
+
+    def resolve_path(self, path):
+        """
+        Resolve a filesystem path.
+
+        If it is a relative path, resolve it relative to the context user's home directory.
+        """
+        if not os.path.isabs(path):
+            path = os.path.join('~', path)
+        path = re.sub(r'^~/', '~' + self.user + '/', path)
+        return os.path.expanduser(path)
 
     @property
     def nest_level(self):

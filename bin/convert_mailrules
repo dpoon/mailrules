@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright 2020 Dara Poon and the University of British Columbia
+# Copyright 2020-2021 Dara Poon and the University of British Columbia
 
 import argparse
 from collections import namedtuple
@@ -49,7 +49,7 @@ def conversion_context(opts):
         homedir,
         {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
         procmailrc_path,
-        mailrules.proc_to_sieve.ProcmailContext(env={
+        mailrules.proc_to_sieve.ProcmailContext(user=user, env={
             'LOGNAME': user,
             'HOME': homedir,
             'MAILDIR': os.path.join(homedir, 'Maildir'),

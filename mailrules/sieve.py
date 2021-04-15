@@ -1,4 +1,4 @@
-# Copyright 2020 Dara Poon and the University of British Columbia
+# Copyright 2020-2021 Dara Poon and the University of British Columbia
 
 from collections import namedtuple
 import re
@@ -7,7 +7,9 @@ import re
 
 def quote(s):
     """RFC 5228 Sec 2.4.2"""
-    return '"{0}"'.format(re.sub(r'[\"]', '\\\g<0>', s))
+    if '\n' not in s:
+        return '"{0}"'.format(re.sub(r'[\"]', '\\\g<0>', s))
+    return 'text:\r\n' + re.sub(r'^\.', '..', s, flags=re.MULTILINE) + '\r\n.\r\n'
 
 def string_list(obj):
     """RFC 5228 Sec 2.4.2.1"""
@@ -193,7 +195,7 @@ class AllofTest(namedtuple('AllofTest', 'tests'), Command):
 
     @property
     def name(self):
-        return next(filter(None, (test.name for test in self.tests)))
+        return next(filter(None, (test.name for test in self.tests)), '')
 
     def __str__(self):
         return 'allof(' + ', '.join(str(t) for t in self.tests) + ')'
@@ -225,7 +227,8 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
         if self.address_part == ':detail':
             # RFC 5233: Subaddress extension
             yield 'subaddress'
-        yield 'variables'
+        if self.match_type == ':matches':
+            yield 'variables'
 
     @property
     def name(self):
@@ -260,9 +263,8 @@ class HeaderTest(namedtuple('HeaderTest', 'header key match_type comparator'), C
         return super().__new__(cls, header, key, match_type, comparator)
 
     def requires(self):
-        # TODO
-        return
-        yield
+        if self.match_type == ':matches':
+            yield 'variables'
 
     @property
     def name(self):
@@ -313,6 +315,8 @@ class SetAction(namedtuple('SetAction', 'name value modifier'), Command):
             ' ' + self.modifier if self.modifier else ''
         )
 
+######################################################################
+
 class MailboxExistsTest(namedtuple('MailboxExistsTest', 'mailbox'), Command):
     """RFC 5490 Sec 3.1"""
     def requires(self):
@@ -321,8 +325,10 @@ class MailboxExistsTest(namedtuple('MailboxExistsTest', 'mailbox'), Command):
     def __str__(self):
         return 'mailboxexists ' + string_list(self.mailbox)
 
+######################################################################
+
 class VacationAction(namedtuple('VacationAction', 'reason days seconds subject from_addr addresses mime handle'), Command):
-    """RFC 5231 (vacation) or RFC 6131) (vacation-seconds)"""
+    """RFC 5231 (vacation) or RFC 6131 (vacation-seconds)"""
     def __new__(cls, reason, days=None, seconds=None, subject=None, from_addr=None, addresses=None, mime=False, handle=None):
         return super().__new__(cls, reason, days, seconds, subject, from_addr, addresses, mime, handle)
 
@@ -352,6 +358,36 @@ class VacationAction(namedtuple('VacationAction', 'reason days seconds subject f
         if self.handle:
             s += ' :handle {0}'.format(quote(self.handle))
         return s + ' ' + quote(self.reason) + ';'
+
+######################################################################
+
+class CurrentDateTest(namedtuple('CurrentDateText', 'date_part key zone originalzone comparator match_type'), Command):
+    """RFC 5260 Sec 5"""
+    def __new__(cls, date_part, key, zone=None, originalzone=None, comparator='i;ascii-casemap', match_type=':is'):
+        if zone is not None and originalzone is not None:
+            raise ValueError('currentdate must not have both :zone and :originalzone')
+        return super().__new__(cls, date_part, key, zone, originalzone, comparator, match_type)
+
+    def requires(self):
+        yield 'date'
+        if self.match_type.startswith(':value'):
+            # RFC 5231 Sec 4.1
+            yield 'relational'
+
+    def __str__(self):
+        s = 'currentdate'
+        if self.comparator != 'i;ascii-casemap':
+            s += ' :comparator ' + quote(self.comparator)
+        if self.match_type != ':is':
+            s += ' ' + self.match_type
+        if self.zone:
+            s += ' :zone {0}'.format(quote(self.zone))
+        elif self.originalzone:
+            s += ' :originalzone'
+        s += ' {0} {1}'.format(quote(self.date_part), string_list(self.key))
+        return s
+
+######################################################################
 
 class IncludeControl(namedtuple('IncludeControl', 'value location once optional'), Command):
     """RFC 6609 Sec 3.2"""
