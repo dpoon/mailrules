@@ -177,6 +177,8 @@ def Test(recipe_flags, recipe_conditions, context):
     test = (
         header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
             if cond.get('regexp') and recipe_flags.get('H', True)
+        else parse_cmdline(context, cond.get('program_exitcode'))
+            if cond.get('program_exitcode')
         else FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
     )
     # Apply modifiers to the test

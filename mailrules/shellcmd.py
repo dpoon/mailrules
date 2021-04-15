@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from collections import namedtuple
+from datetime import datetime
 import email
 import email.policy
 import os.path
@@ -23,6 +24,22 @@ class SilentArgumentParser(ArgumentParser):
     def exit(self, status=0, message=None):
         if status:
             raise ShellCommandException(message)
+
+######################################################################
+
+def IsAway(procmail_context, args):
+    with open(procmail_context.resolve_path('bin/is_away')) as f:
+        assignments = [re.match(r'^\s*(?P<var>[a-z][a-z0-9_]*)=(?P<val>[^#\s]*)', line) for line in f]
+        assignments = {m.group('var'): m.group('val') for m in assignments if m}
+    try:
+        start = datetime.fromtimestamp(int(assignments['start_away_msg']))
+        end = datetime.fromtimestamp(int(assignments['end_away_msg']))
+    except (KeyError, ValueError):
+        raise ShellCommandException("bin/is_away: Could not detect start and end times")
+    return sieve.AllofTest(
+        sieve.CurrentDateTest('iso8601', start.isoformat(), match_type=':value "ge"'),
+        sieve.CurrentDateTest('iso8601', end.isoformat(), match_type=':value "lt"'),
+    )
 
 ######################################################################
 
@@ -89,6 +106,7 @@ def Vacation(procmail_context, args):
 ######################################################################
 
 SUPPORTED_COMMANDS = {
+    'bin/is_away': IsAway,
     'vacation': Vacation,
 }
 
