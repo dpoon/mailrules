@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 from datetime import datetime, timezone
+from email.utils import formataddr, parseaddr
 from itertools import chain, product, repeat, takewhile
 import os
 import re
@@ -234,13 +235,14 @@ def Action(flags, action, context):
 
 
 class ProcmailContext:
-    def __init__(self, env={}, parent=None, chain_type=None, user=None):
+    def __init__(self, env={}, parent=None, chain_type=None, user=None, domain=None):
         self.env = dict(env)
         self.parent = parent
         self._initial = self if parent is None else parent.initial
         self.chain_type = chain_type
         assert(user or parent.user)
         self.user = user or parent.user
+        self._domain = domain
 
     def setenv(self, variable, value):
         self.env[variable] = self.interpolate(value)
@@ -252,6 +254,13 @@ class ProcmailContext:
             return self.parent.getenv(variable, default)
         else:
             return default
+
+    @property
+    def domain(self):
+        d = self._domain if self._domain else self.initial.domain if self != self.initial else None
+        if d is None:
+            raise KeyError('email domain is unspecified')
+        return d
 
     def interpolate(self, s):
         def subst_handler(match):
@@ -276,6 +285,17 @@ class ProcmailContext:
             path = os.path.join('~', path)
         path = re.sub(r'^~/', '~' + self.user + '/', path)
         return os.path.expanduser(path)
+
+    def resolve_mail_address(self, addr):
+        """
+        Resolve a mail address.
+
+        If addr consists only of a local-part (RFC 822 Sec 6), then "@domain" is appended.
+        """
+        name_part, addr_part = parseaddr(addr)
+        if '@' not in addr_part and addr_part != '':
+            addr_part += '@' + self.domain
+        return formataddr((name_part, addr_part))
 
     @property
     def nest_level(self):

@@ -20,6 +20,10 @@ def parse_args(args=None):
         type=str, required=True,
         help='username whose configuration to convert',
     )
+    parser.add_argument('-d', '--domain',
+        type=str,
+        help='email domain of the user',
+    )
     parser.add_argument('-p', '--provenance-comments',
         action='store_true',
         help='output comments about the source filenames and their modification times',
@@ -49,13 +53,17 @@ def conversion_context(opts):
         homedir,
         {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
         procmailrc_path,
-        mailrules.proc_to_sieve.ProcmailContext(user=user, env={
-            'LOGNAME': user,
-            'HOME': homedir,
-            'MAILDIR': os.path.join(homedir, 'Maildir'),
-            'DEFAULT': os.path.join(homedir, 'Maildir') + '/',
-            'ORGMAIL': os.path.join(homedir, 'Maildir') + '/',
-        }),
+        mailrules.proc_to_sieve.ProcmailContext(
+            user=user,
+            domain=opts.domain,
+            env={
+                'LOGNAME': user,
+                'HOME': homedir,
+                'MAILDIR': os.path.join(homedir, 'Maildir'),
+                'DEFAULT': os.path.join(homedir, 'Maildir') + '/',
+                'ORGMAIL': os.path.join(homedir, 'Maildir') + '/',
+            },
+        ),
         opts.provenance_comments
     )
 
