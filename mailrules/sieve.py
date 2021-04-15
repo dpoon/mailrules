@@ -114,7 +114,8 @@ class FileintoAction(namedtuple('Fileinto', 'mailbox copy create'), Command):
 
     @property
     def name(self):
-        return re.sub(r'^INBOX\.', '', self.mailbox)
+        mbox_name = re.sub(r'^INBOX\.', '', self.mailbox)
+        return None if mbox_name.startswith('$') else mbox_name
 
     def __str__(self):
         s = 'fileinto'
@@ -232,7 +233,10 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
 
     @property
     def name(self):
-        return self.key
+        if self.match_type == ':matches' and self.key == '*':
+            return "Envelope {0}".format(self.envelope_part.replace(':', ''))
+        else:
+            return self.key
 
     def __str__(self):
         s = 'envelope'
