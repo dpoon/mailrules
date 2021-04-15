@@ -327,9 +327,8 @@ def ProcmailrcGeneral(procmail_rules, context):
             if isinstance(rule, procmailrc.Assignment):
                 if rule.variable == 'INCLUDERC':
                     # This is a very special kind of "assignment"!
-                    # TODO: transpile the included script too
-                    yield FIXME('Need to transpile and install ' + rule.value)
-                    yield sieve.IncludeControl(context.interpolate(rule.value))
+                    # TODO: transpile the included script too.
+                    yield FIXME(sieve.IncludeControl(context.interpolate(rule.value)))
                 else:
                     context.setenv(rule.variable, rule.value)
                     if rule.variable not in ('PATH', 'LOCKFILE', 'LOGFILE', 'VERBOSE', 'LOGABSTRACT', 'SHELL', 'MAILDIR', 'DEFAULT', 'ORGMAIL'):
