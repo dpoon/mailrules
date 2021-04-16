@@ -55,7 +55,7 @@ class IfControl(namedtuple('IfControl', 'test command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
-        return 'if {0} {{\n    {1}\n}}'.format(
+        return 'if {0} {{\r\n    {1}\r\n}}'.format(
             self.test,
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
@@ -72,7 +72,7 @@ class ElsifControl(namedtuple('ElsifControl', 'test command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
-        return 'elsif {0} {{\n    {1}\n}}'.format(
+        return 'elsif {0} {{\r\n    {1}\r\n}}'.format(
             self.test,
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
@@ -88,7 +88,7 @@ class ElseControl(namedtuple('ElseControl', 'command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), '')
 
     def __str__(self):
-        return 'else {{\n    {0}\n}}'.format(
+        return 'else {{\r\n    {0}\r\n}}'.format(
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
 

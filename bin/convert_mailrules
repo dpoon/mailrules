@@ -86,8 +86,8 @@ def main():
 
     sieve_script_text = str(out)
     if sieve_script_text:
-        print('{} {} {}'.format('#' * 20, conv.user, '#' * 20))
-        print(sieve_script_text)
+        print('{} {} {}'.format('#' * 20, conv.user, '#' * 20), end='\r\n')
+        print(sieve_script_text, end='\r\n')
 
     sys.exit(1 if mailrules.proc_to_sieve.FIXME.instances else 0)
 
