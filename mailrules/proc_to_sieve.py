@@ -233,16 +233,16 @@ def Action(flags, action, context):
     else:
         yield FIXME(action)
 
+######################################################################
 
 class ProcmailContext:
-    def __init__(self, env={}, parent=None, chain_type=None, user=None, domain=None):
-        self.env = dict(env)
+    def __init__(self, env={}, parent=None, chain_type=None, user=None, email_domain=None):
+        self.user = user or (parent.user if parent is not None else None)
+        self._email_domain = email_domain
+        self.env = {k: v(self) if callable(v) else v for k, v in env.items()}
         self.parent = parent
         self._initial = self if parent is None else parent.initial
         self.chain_type = chain_type
-        assert(user or parent.user)
-        self.user = user or parent.user
-        self._domain = domain
 
     def setenv(self, variable, value):
         self.env[variable] = self.interpolate(value)
@@ -256,8 +256,12 @@ class ProcmailContext:
             return default
 
     @property
-    def domain(self):
-        d = self._domain if self._domain else self.initial.domain if self != self.initial else None
+    def email_domain(self):
+        d = (
+            self._email_domain if self._email_domain
+            else self.initial.email_domain if self != self.initial
+            else None
+        )
         if d is None:
             raise KeyError('email domain is unspecified')
         return d
@@ -275,26 +279,28 @@ class ProcmailContext:
             s
         )
 
+    @property
+    def directory(self):
+        return os.path.expanduser('~' + (self.user or ''))
+
     def resolve_path(self, path):
         """
         Resolve a filesystem path.
 
         If it is a relative path, resolve it relative to the context user's home directory.
         """
-        if not os.path.isabs(path):
-            path = os.path.join('~', path)
-        path = re.sub(r'^~/', '~' + self.user + '/', path)
-        return os.path.expanduser(path)
+        path = os.path.expanduser(path)
+        return path if os.path.isabs(path) else os.path.join(self.directory, path)
 
-    def resolve_mail_address(self, addr):
+    def resolve_email_address(self, addr):
         """
-        Resolve a mail address.
+        Resolve an email address.
 
         If addr consists only of a local-part (RFC 822 Sec 6), then "@domain" is appended.
         """
         name_part, addr_part = parseaddr(addr)
         if '@' not in addr_part and addr_part != '':
-            addr_part += '@' + self.domain
+            addr_part += '@' + self.email_domain
         return formataddr((name_part, addr_part))
 
     @property
@@ -323,6 +329,8 @@ class ProcmailContext:
 
     def __repr__(self):
         return 'ProcmailContext(env={0!r}, chain_type={1!r}, parent={2})'.format(self.env, self.chain_type, self.parent)
+
+######################################################################
 
 def Recipe(recipe, context):
     if HAS_COND_MAIL_EXTENSION(recipe):

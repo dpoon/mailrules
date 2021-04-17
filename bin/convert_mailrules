@@ -17,7 +17,7 @@ import mailrules.sieve
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-u', '--user',
-        type=str, required=True,
+        type=str,
         help='username whose configuration to convert',
     )
     parser.add_argument('-d', '--domain',
@@ -35,35 +35,33 @@ def error(msg):
     sys.exit(1)
 
 def conversion_context(opts):
-    user = opts.user
-    try:
-        homedir = pwd.getpwnam(user).pw_dir
-    except KeyError:
-        error("No such user: {}".format(user))
-    forward_paths = glob(os.path.join(homedir, '.forward')) + list(filter(
-        lambda path: re.fullmatch(r'\.forward\+[A-Za-z0-9_]+', os.path.basename(path)),
-        glob(os.path.join(homedir, '.forward+*'))
-    ))
-    procmailrc_path = os.path.join(homedir, '.procmailrc')
+    procmail_context = mailrules.proc_to_sieve.ProcmailContext(
+        user=opts.user,
+        email_domain=opts.domain,
+        env={
+            'LOGNAME': opts.user or os.getenv('LOGNAME'),
+            'HOME': lambda c: c.directory,
+            'MAILDIR': lambda c: c.resolve_path('Maildir'),
+            'DEFAULT': lambda c: c.resolve_path('Maildir/'),
+            'ORGMAIL': lambda c: c.resolve_path('Maildir/'),
+        }
+    )
+
+    procmailrc_path = procmail_context.resolve_path('.procmailrc')
     if not os.path.isfile(procmailrc_path):
         procmailrc_path = None
+
+    forward_paths = glob(procmail_context.resolve_path('.forward')) + list(filter(
+        lambda path: re.fullmatch(r'\.forward\+[A-Za-z0-9_]+', os.path.basename(path)),
+        glob(procmail_context.resolve_path('.forward+*'))
+    ))
+
     return namedtuple('ConversionContext',
-            'user homedir forward_paths procmailrc_path procmail_context provenance_comments')(
-        user,
-        homedir,
+            'homedir forward_paths procmailrc_path procmail_context provenance_comments')(
+        procmail_context.directory,
         {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
         procmailrc_path,
-        mailrules.proc_to_sieve.ProcmailContext(
-            user=user,
-            domain=opts.domain,
-            env={
-                'LOGNAME': user,
-                'HOME': homedir,
-                'MAILDIR': os.path.join(homedir, 'Maildir'),
-                'DEFAULT': os.path.join(homedir, 'Maildir') + '/',
-                'ORGMAIL': os.path.join(homedir, 'Maildir') + '/',
-            },
-        ),
+        procmail_context,
         opts.provenance_comments
     )
 
@@ -86,7 +84,6 @@ def main():
 
     sieve_script_text = str(out)
     if sieve_script_text:
-        print('{} {} {}'.format('#' * 20, conv.user, '#' * 20), end='\r\n')
         print(sieve_script_text, end='\r\n')
 
     sys.exit(1 if mailrules.proc_to_sieve.FIXME.instances else 0)
