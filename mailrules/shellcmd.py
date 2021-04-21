@@ -102,7 +102,7 @@ def Vacation(procmail_context, args):
     subject = msg.subject.replace('$SUBJECT', '${1}') if msg.subject else None
     try:
         from_addr = invocation.fromaddr or msg.from_addr
-        from_addr = procmail_context.resolve_mail_address(from_addr)
+        from_addr = procmail_context.resolve_email_address(from_addr)
     except KeyError as e:
         pass
     vacation_action = sieve.VacationAction(
