@@ -79,8 +79,11 @@ def mailbox_name(s, context):
 
 
 def ForwardFile(path, extension, context, provenance_comments=False):
+    def is_to_myself(dest):
+        return dest == '\\' + context.initial.getenv('LOGNAME') or \
+               dest == context.initial.getenv('LOGNAME')
     def interpret(expansion):
-        keep_copy = '\\' + context.initial.getenv('LOGNAME') in expansion
+        keep_copy = any(is_to_myself(e) for e in expansion)
         for dest in expansion:
             if mailbox_name(dest, context):
                 yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
@@ -88,7 +91,7 @@ def ForwardFile(path, extension, context, provenance_comments=False):
                 yield proc_to_sieve.FIXME(dest) # Pipes not supported
             elif dest.startswith(':include:'):
                 yield sieve.FIXME(dest) # Pipes not supported
-            elif dest == '\\' + context.initial.getenv('LOGNAME'):
+            elif is_to_myself(dest):
                 pass
             else:
                 yield sieve.RedirectAction(dest, copy=keep_copy)
