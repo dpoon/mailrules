@@ -238,8 +238,9 @@ def Action(flags, action, context):
 ######################################################################
 
 class ProcmailContext:
-    def __init__(self, env={}, parent=None, chain_type=None, user=None, email_domain=None):
+    def __init__(self, parent=None, env={}, chain_type=None, user=None, email_domain=None, provenance_comments=None):
         self.user = user or (parent.user if parent is not None else None)
+        self.emit_provenance_comments = provenance_comments or (parent.emit_provenance_comments if parent is not None else False)
         self._email_domain = email_domain
         self.env = {k: v(self) if callable(v) else v for k, v in env.items()}
         self.parent = parent
@@ -379,7 +380,7 @@ def ProcmailrcGeneral(procmail_rules, context):
         else:
             raise ValueError(rule)
 
-def Procmailrc(procmailrc_path, context, provenance_comments=False):
+def Procmailrc(procmailrc_path, context):
     def rule_chunks(procmail_rule_iter):
         chunk_type, chunk = 'preamble', []
         for rule in procmail_rule_iter:
@@ -398,7 +399,7 @@ def Procmailrc(procmailrc_path, context, provenance_comments=False):
     with open(procmailrc_path) as f:
         parser = procmailrc.Parser(procmailrc_path)
         procmail_rules = list(parser.parse_rules(parser.numbered_folded_line_iter(f)))
-        if provenance_comments:
+        if context.emit_provenance_comments:
             mtime = os.fstat(f.fileno()).st_mtime
             yield sieve.Comment('Converted from {} ({})'.format(
                 procmailrc_path,

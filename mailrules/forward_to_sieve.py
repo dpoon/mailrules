@@ -59,13 +59,12 @@ except ImportError:
               edit the allow_mail_to_commands and allow_mail_to_files configuration parameters.
 """
 
-def ForwardFiles(ext_file_map, context, provenance_comments=False):
+def ForwardFiles(ext_file_map, context):
     for extension, forward_path in reversed(list(ext_file_map.items())):
         yield from ForwardFile(
             forward_path,
             extension,
-            context,
-            provenance_comments
+            context
         )
         context = proc_to_sieve.ProcmailContext(parent=context, chain_type='else')
 
@@ -78,8 +77,7 @@ def mailbox_name(s, context):
             return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/(.*?)/?$', r'INBOX\g<1>', s)
     return None
 
-
-def ForwardFile(path, extension, context, provenance_comments=False):
+def ForwardFile(path, extension, context):
     def is_to_myself(dest):
         return dest == '\\' + context.initial.getenv('LOGNAME') or \
                dest == context.initial.getenv('LOGNAME')
@@ -108,7 +106,7 @@ def ForwardFile(path, extension, context, provenance_comments=False):
             for line in f
             if not line.startswith('#')
         )
-        if not provenance_comments:
+        if not context.emit_provenance_comments:
             provenance = []
         else:
             mtime = os.fstat(f.fileno()).st_mtime

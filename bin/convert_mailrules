@@ -45,7 +45,8 @@ def conversion_context(opts):
             'DEFAULT': lambda c: c.resolve_path('Maildir/'),
             'ORGMAIL': lambda c: c.resolve_path('Maildir/'),
             'PATH': '/usr/local/bin:/usr/bin:/bin',
-        }
+        },
+        provenance_comments=opts.provenance_comments,
     )
 
     procmailrc_path = procmail_context.resolve_path('.procmailrc')
@@ -58,12 +59,10 @@ def conversion_context(opts):
     ))
 
     return namedtuple('ConversionContext',
-            'homedir forward_paths procmailrc_path procmail_context provenance_comments')(
-        procmail_context.directory,
+            'forward_paths procmailrc_path procmail_context')(
         {re.sub(r'.*/.forward\+?', '', path): path for path in forward_paths},
         procmailrc_path,
-        procmail_context,
-        opts.provenance_comments
+        procmail_context
     )
 
 def main():
@@ -72,14 +71,12 @@ def main():
 
     for cmd in mailrules.forward_to_sieve.ForwardFiles(
                 conv.forward_paths, conv.procmail_context,
-                conv.provenance_comments
             ):
         out.add_command(cmd)
 
     if conv.procmailrc_path:
         for cmd in mailrules.proc_to_sieve.Procmailrc(
                     conv.procmailrc_path, conv.procmail_context,
-                    conv.provenance_comments
                 ):
             out.add_command(cmd)
 
