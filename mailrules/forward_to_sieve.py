@@ -6,6 +6,7 @@ from itertools import chain
 import os
 import re
 import mailrules.proc_to_sieve as proc_to_sieve
+from mailrules.shellcmd import parse_cmdline, ShellCommandException
 import mailrules.sieve as sieve
 
 try:
@@ -88,7 +89,10 @@ def ForwardFile(path, extension, context, provenance_comments=False):
             if mailbox_name(dest, context):
                 yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
             elif dest.startswith('|'):
-                yield proc_to_sieve.FIXME(dest) # Pipes not supported
+                try:
+                    yield from parse_cmdline(context, re.sub(r'^\|', '', dest))
+                except ShellCommandException as e:
+                    yield proc_to_sieve.FIXME('{}: ({})'.format(str(e), dest))
             elif dest.startswith(':include:'):
                 yield sieve.FIXME(dest) # Pipes not supported
             elif is_to_myself(dest):

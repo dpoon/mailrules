@@ -40,7 +40,7 @@ def IsAway(procmail_context, args):
         end = datetime.fromtimestamp(int(assignments['end_away_msg']))
     except (KeyError, OSError, ValueError):
         raise ShellCommandException("bin/is_away: Could not detect start and end times") from None
-    return sieve.AllofTest(
+    yield sieve.AllofTest(
         sieve.CurrentDateTest('iso8601', start.isoformat(), match_type=':value "ge"'),
         sieve.CurrentDateTest('iso8601', end.isoformat(), match_type=':value "lt"'),
     )
@@ -103,20 +103,19 @@ def Vacation(procmail_context, args):
         from_addr = procmail_context.resolve_email_address(from_addr)
     except KeyError as e:
         pass
-    vacation_action = sieve.VacationAction(
-        reason=reason,
-        subject=subject,
-        from_addr=from_addr,
-        addresses=invocation.alias,
-        mime=msg.mime,
+    yield from procmail_context.context_chain(
+        sieve.HeaderTest('subject', "*", match_type=':matches')
+            if reason != msg.reason or subject != msg.subject else None,
+        [
+            sieve.VacationAction(
+                reason=reason,
+                subject=subject,
+                from_addr=from_addr,
+                addresses=invocation.alias,
+                mime=msg.mime,
+            )
+        ]
     )
-    if reason != msg.reason or subject != msg.subject:
-        return sieve.IfControl(
-            sieve.HeaderTest('subject', "*", match_type=':matches'),
-            vacation_action
-        )
-    else:
-        return vacation_action
 
 
 ######################################################################
@@ -140,4 +139,4 @@ def parse_cmdline(procmail_context, cmdline):
     cmd = resolve_cmd(procmail_context, args.pop(0)) if args else None
     if not cmd:
         raise ShellCommandException('Unsupported external command: ' + cmdline)
-    return cmd(procmail_context, args)
+    yield from cmd(procmail_context, args)

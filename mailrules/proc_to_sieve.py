@@ -183,9 +183,9 @@ def Test(recipe_flags, recipe_conditions, context):
         test = header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
     elif cond.get('program_exitcode'):
         try:
-            test = parse_cmdline(context, cond.get('program_exitcode'))
-        except ShellCommandException:
-            pass    # Fall back to the FIXME
+            test = next(parse_cmdline(context, cond.get('program_exitcode')))
+        except ShellCommandException as e:
+            test = FIXME('{}: ({})'.format(str(e), cond.get('program_exitcode')), placeholder=sieve.FalseTest())
     if test is None:
         test = FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
 
@@ -225,11 +225,11 @@ def Action(flags, action, context):
         yield sieve.RedirectAction(context.interpolate(action.destinations[-1]), copy=flags.get('c', False))
     elif isinstance(action, procmailrc.Pipe):
         try:
-            yield parse_cmdline(context, action.command)
+            yield from parse_cmdline(context, action.command)
             if not flags.get('c', False):
                 yield sieve.DiscardAction()
-        except ShellCommandException:
-            yield FIXME(action)
+        except ShellCommandException as e:
+            yield FIXME('{}: ({})'.format(str(e), action))
     elif isinstance(action, list):
         yield from ProcmailrcGeneral(action, ProcmailContext(parent=context))
     else:
