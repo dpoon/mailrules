@@ -199,7 +199,7 @@ def Test(recipe_flags, recipe_conditions, context):
 
 def Action(flags, action, context):
     def mailbox_name(s):
-        return re.sub('^' + re.escape(context.initial.getenv('ORGMAIL')) + '(.*?)/?$', r'INBOX\g<1>', s)
+        return re.sub('^' + re.escape(context.initial.getenv('DEFAULT')) + '/+(.*?)/*$', r'INBOX\g<1>', s)
 
     if isinstance(action, list) and len(action) == 1:
         if isinstance(action[0], procmailrc.Assignment):
@@ -210,15 +210,16 @@ def Action(flags, action, context):
     if isinstance(action, procmailrc.Assignment):
         yield sieve.SetAction(action.variable, action.value)
     elif isinstance(action, procmailrc.Mailbox):
+        dest_mailbox = mailbox_name(context.interpolate(action.destination))
         if not flags.get('c', False):
             if action.destination == '/dev/null':
                 yield sieve.DiscardAction()
                 return
-            elif context.interpolate(action.destination) == context.initial.getenv('ORGMAIL'):
+            elif dest_mailbox == 'INBOX':
                 yield sieve.KeepAction()
                 return
         copy = flags.get('c', False)
-        yield sieve.FileintoAction(mailbox_name(context.interpolate(action.destination)), copy=copy, create=True)
+        yield sieve.FileintoAction(dest_mailbox, copy=copy, create=True)
     elif isinstance(action, procmailrc.Forward):
         for dest in action.destinations[:-1]:
             yield sieve.RedirectAction(context.interpolate(dest), copy=True)
@@ -308,14 +309,14 @@ class ProcmailContext:
 
     @property
     def nest_level(self):
-        return 0 if not self.parent else 1 + self.parent.nest_level
+        return 0 if (not self.parent or self.parent == self.initial) else 1 + self.parent.nest_level
 
     @property
     def initial(self):
         return self._initial
 
     def context_chain(self, test, actions):
-        #print("context chain self={} test={} actions={}".format(self, test, actions))
+        #print("context chain self={} test={} actions={} nest_level={}".format(self, test, actions, self.nest_level))
         if test is None and self.chain_type is None:
             if self.nest_level or self.chain_type == 'else':
                 yield from actions
@@ -396,6 +397,7 @@ def Procmailrc(procmailrc_path, context):
         if chunk:
             yield chunk_type, chunk
 
+    context = ProcmailContext(context)
     with open(procmailrc_path) as f:
         parser = procmailrc.Parser(procmailrc_path)
         procmail_rules = list(parser.parse_rules(parser.numbered_folded_line_iter(f)))

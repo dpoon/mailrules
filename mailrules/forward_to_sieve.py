@@ -69,13 +69,11 @@ def ForwardFiles(ext_file_map, context):
         context = proc_to_sieve.ProcmailContext(parent=context, chain_type='else')
 
 def mailbox_name(s, context):
-    s = re.sub('^~/', context.initial.getenv('HOME') + '/', s)
-    if s.startswith(context.initial.getenv('MAILDIR')):
-        if context.initial.getenv('MAILDIR') + '/' == s:
-            return 'INBOX'
-        else:
-            return re.sub('^' + re.escape(context.initial.getenv('MAILDIR')) + '/(.*?)/?$', r'INBOX\g<1>', s)
-    return None
+    return re.sub(
+        '^' + re.escape(context.initial.getenv('DEFAULT')) + '/+(.*?)/*$',
+        r'INBOX\g<1>',
+        context.resolve_path(s)
+    ) if '/' in s else None
 
 def ForwardFile(path, extension, context):
     def is_to_myself(dest):

@@ -41,9 +41,9 @@ def conversion_context(opts):
         env={
             'LOGNAME': opts.user or os.getenv('LOGNAME'),
             'HOME': lambda c: c.directory,
-            'MAILDIR': lambda c: c.resolve_path('Maildir'),
-            'DEFAULT': lambda c: c.resolve_path('Maildir/'),
-            'ORGMAIL': lambda c: c.resolve_path('Maildir/'),
+            'MAILDIR': lambda c: c.directory,
+            'DEFAULT': lambda c: c.resolve_path('Maildir'),
+            'ORGMAIL': os.path.join('/var/mail', opts.user or os.getenv('LOGNAME')),
             'PATH': '/usr/local/bin:/usr/bin:/bin',
         },
         provenance_comments=opts.provenance_comments,
