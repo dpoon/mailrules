@@ -402,21 +402,6 @@ def ProcmailrcGeneral(procmail_rules, context):
             raise ValueError(rule)
 
 def Procmailrc(procmailrc_path, context):
-    def rule_chunks(procmail_rule_iter):
-        chunk_type, chunk = 'preamble', []
-        for rule in procmail_rule_iter:
-            if chunk_type == 'preamble' and not isinstance(rule, procmailrc.Assignment):
-                if chunk:
-                    yield chunk_type, chunk
-                chunk_type, chunk = None, []
-
-            chunk.append(rule)
-            if rule.is_delivering:
-                yield chunk_type, chunk
-                chunk_type, chunk = None, []
-        if chunk:
-            yield chunk_type, chunk
-
     context = ProcmailContext(context)
     with open(procmailrc_path) as f:
         parser = procmailrc.Parser(procmailrc_path)
@@ -430,13 +415,5 @@ def Procmailrc(procmailrc_path, context):
 
     procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)
 
-    for chunk_type, chunk in rule_chunks(procmail_rule_iter):
-        #print(chunk_type, chunk)
-        if chunk_type == 'preamble':
-            yield from ProcmailrcGeneral(chunk, context)
-        else:
-            commands = list(ProcmailrcGeneral(chunk, ProcmailContext(parent=context, chain_type=chunk_type)))
-            if not commands:
-                yield FIXME('OUT OF COMMANDS?')
-            else:
-                yield from commands
+    for rule in procmail_rule_iter:
+        yield from ProcmailrcGeneral([rule], context)
