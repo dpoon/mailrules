@@ -243,9 +243,9 @@ class ProcmailContext:
         self.user = user or (parent.user if parent is not None else None)
         self.emit_provenance_comments = provenance_comments or (parent.emit_provenance_comments if parent is not None else False)
         self._email_domain = email_domain
+        self._initial = self if parent is None else parent.initial
         self.env = {k: v(self) if callable(v) else v for k, v in env.items()}
         self.parent = parent
-        self._initial = self if parent is None else parent.initial
         self.chain_type = chain_type
 
     def setenv(self, variable, value):
@@ -287,14 +287,20 @@ class ProcmailContext:
     def directory(self):
         return os.path.expanduser('~' + (self.user or ''))
 
-    def resolve_path(self, path):
+    def resolve_path(self, path, rel_to=None):
         """
         Resolve a filesystem path.
 
-        If it is a relative path, resolve it relative to the context user's home directory.
+        If it is a relative path, resolve it relative to the path given in the
+        rel_to parameter (or, if it is not given, relative to the context
+        user's home directory).
         """
+        path = re.sub('^~(?=/|$)', self.initial.directory, path)
         path = os.path.expanduser(path)
-        return path if os.path.isabs(path) else os.path.join(self.directory, path)
+        if os.path.isabs(path):
+            return path
+        else:
+            return os.path.join(rel_to or self.directory, path)
 
     def resolve_email_address(self, addr):
         """
@@ -359,10 +365,17 @@ def ProcmailrcGeneral(procmail_rules, context):
     for rule in procmail_rules:
         if isinstance(rule, procmailrc.Assignment):
             if isinstance(rule, procmailrc.Assignment):
-                if rule.variable == 'INCLUDERC':
-                    # This is a very special kind of "assignment"!
-                    # TODO: transpile the included script too.
-                    yield FIXME(sieve.IncludeControl(context.interpolate(rule.value)))
+                if rule.variable in ['HOST', 'SWITCHRC']:
+                    # FIXME: Unsupported special assignments
+                    yield FIXME(rule, placeholder=sieve.StopControl())
+                elif rule.variable == 'INCLUDERC':
+                    try:
+                        yield from Procmailrc(
+                            context.resolve_path(context.interpolate(rule.value), context.getenv('MAILDIR')),
+                            ProcmailContext(parent=context, chain_type=None)
+                        )
+                    except OSError:
+                        yield FIXME(sieve.IncludeControl(context.interpolate(rule.value)))
                 else:
                     context.setenv(rule.variable, rule.value)
                     if rule.variable not in ('PATH', 'LOCKFILE', 'LOGFILE', 'VERBOSE', 'LOGABSTRACT', 'SHELL', 'MAILDIR', 'DEFAULT', 'ORGMAIL'):
@@ -420,10 +433,3 @@ def Procmailrc(procmailrc_path, context):
                 yield FIXME('OUT OF COMMANDS?')
             else:
                 yield from commands
-
-
-# TODO:
-# pattern recognition
-# is_away
-# notifications
-# includes
