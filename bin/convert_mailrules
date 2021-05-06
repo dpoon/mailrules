@@ -44,6 +44,7 @@ def conversion_context(opts):
             'MAILDIR': lambda c: c.resolve_path('Maildir'),
             'DEFAULT': lambda c: c.resolve_path('Maildir/'),
             'ORGMAIL': lambda c: c.resolve_path('Maildir/'),
+            'PATH': '/usr/local/bin:/usr/bin:/bin',
         }
     )
 

@@ -123,12 +123,21 @@ def Vacation(procmail_context, args):
 
 SUPPORTED_COMMANDS = {
     'bin/is_away': IsAway,
-    'vacation': Vacation,
+    '/usr/bin/vacation': Vacation,
 }
+
+def resolve_cmd(procmail_context, cmd):
+    if '/' in cmd:
+        return SUPPORTED_COMMANDS.get(cmd, None)
+    for directory in procmail_context.getenv('PATH').split(':'):
+        p = os.path.join(directory, cmd)
+        if p in SUPPORTED_COMMANDS:
+            return SUPPORTED_COMMANDS[p]
+    return None
 
 def parse_cmdline(procmail_context, cmdline):
     args = [procmail_context.interpolate(arg) for arg in shlex.split(cmdline)]
-    cmd = args.pop(0)
-    if cmd not in SUPPORTED_COMMANDS:
+    cmd = resolve_cmd(procmail_context, args.pop(0)) if args else None
+    if not cmd:
         raise ShellCommandException('Unsupported external command: ' + cmdline)
-    return SUPPORTED_COMMANDS[cmd](procmail_context, args)
+    return cmd(procmail_context, args)
