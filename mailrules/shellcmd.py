@@ -8,6 +8,7 @@ import email.policy
 import os.path
 import re
 import shlex
+import mailrules.proc_to_sieve
 import mailrules.sieve as sieve
 
 ######################################################################
@@ -44,6 +45,35 @@ def IsAway(procmail_context, args):
         sieve.CurrentDateTest('iso8601', start.isoformat(), match_type=':value "ge"'),
         sieve.CurrentDateTest('iso8601', end.isoformat(), match_type=':value "lt"'),
     )
+
+######################################################################
+
+def Procmail(procmail_context, args):
+    p = SilentArgumentParser(prog='procmail')
+    p.add_argument('-v', dest='version', action='store_true',
+        help="Do nothing, successfully")
+    p.add_argument('-d', metavar='recipient', dest='recipient',
+        help="Explicit delivery mode (unsupported by Sieve)")
+    p.add_argument('-m', dest='general_mail_filter', action='store_true',
+        help="General-purpose mail filter (unsupported by Sieve)")
+    p.add_argument('rcfile', nargs='?', default='.procmailrc',
+        help="procmailrc file (Sieve only supports one rcfile)")
+
+    invocation, extra_args = p.parse_known_args(args)
+    if invocation.version:
+        return
+    elif invocation.recipient:
+        raise ShellCommandException("procmail -d: Unsupported mode")
+    elif invocation.general_mail_filter:
+        raise ShellCommandException("procmail -m: Unsupported mode")
+    else:
+        try:
+            yield from mailrules.proc_to_sieve.Procmailrc(
+                procmail_context.resolve_path(invocation.rcfile),
+                mailrules.proc_to_sieve.ProcmailContext(parent=procmail_context, chain_type=None)
+            )
+        except OSError as e:
+            raise ShellCommandException(str(e))
 
 ######################################################################
 
@@ -122,6 +152,7 @@ def Vacation(procmail_context, args):
 
 SUPPORTED_COMMANDS = {
     'bin/is_away': IsAway,
+    '/usr/bin/procmail': Procmail,
     '/usr/bin/vacation': Vacation,
 }
 
