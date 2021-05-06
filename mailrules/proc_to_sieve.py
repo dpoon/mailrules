@@ -214,21 +214,28 @@ def Action(flags, action, context):
         if not flags.get('c', False):
             if action.destination == '/dev/null':
                 yield sieve.DiscardAction()
+                yield sieve.StopControl()
                 return
             elif dest_mailbox == 'INBOX':
                 yield sieve.KeepAction()
+                yield sieve.StopControl()
                 return
         copy = flags.get('c', False)
         yield sieve.FileintoAction(dest_mailbox, copy=copy, create=True)
+        if not flags.get('c', False):
+            yield sieve.StopControl()
     elif isinstance(action, procmailrc.Forward):
         for dest in action.destinations[:-1]:
             yield sieve.RedirectAction(context.interpolate(dest), copy=True)
         yield sieve.RedirectAction(context.interpolate(action.destinations[-1]), copy=flags.get('c', False))
+        if not flags.get('c', False):
+            yield sieve.StopControl()
     elif isinstance(action, procmailrc.Pipe):
         try:
             yield from parse_cmdline(context, action.command)
             if not flags.get('c', False):
                 yield sieve.DiscardAction()
+                yield sieve.StopControl()
         except ShellCommandException as e:
             yield FIXME('{}: ({})'.format(str(e), action))
     elif isinstance(action, list):
@@ -324,7 +331,7 @@ class ProcmailContext:
     def context_chain(self, test, actions):
         #print("context chain self={} test={} actions={} nest_level={}".format(self, test, actions, self.nest_level))
         if test is None and self.chain_type is None:
-            if self.nest_level or self.chain_type == 'else':
+            if self.nest_level > 1:
                 yield from actions
             else:
                 yield sieve.IfControl(sieve.TrueTest(), actions)
@@ -406,7 +413,7 @@ def Procmailrc(procmailrc_path, context):
             chunk.append(rule)
             if rule.is_delivering:
                 yield chunk_type, chunk
-                chunk_type, chunk = 'else', []
+                chunk_type, chunk = None, []
         if chunk:
             yield chunk_type, chunk
 

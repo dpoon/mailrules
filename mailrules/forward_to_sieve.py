@@ -66,7 +66,7 @@ def ForwardFiles(ext_file_map, context):
             extension,
             context
         )
-        context = proc_to_sieve.ProcmailContext(parent=context, chain_type='else')
+        context = proc_to_sieve.ProcmailContext(parent=context, chain_type=None)
 
 def mailbox_name(s, context):
     return re.sub(
