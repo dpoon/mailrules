@@ -55,7 +55,7 @@ class IfControl(namedtuple('IfControl', 'test command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
-        return 'if {0} {{\r\n    {1}\r\n}}'.format(
+        return 'if {0}\r\n{{\r\n    {1}\r\n}}'.format(
             self.test,
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
@@ -72,7 +72,7 @@ class ElsifControl(namedtuple('ElsifControl', 'test command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
-        return 'elsif {0} {{\r\n    {1}\r\n}}'.format(
+        return 'elsif {0}\r\n{{\r\n    {1}\r\n}}'.format(
             self.test,
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
@@ -88,7 +88,7 @@ class ElseControl(namedtuple('ElseControl', 'command'), Command):
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), '')
 
     def __str__(self):
-        return 'else {{\r\n    {0}\r\n}}'.format(
+        return 'else\r\n{{\r\n    {0}\r\n}}'.format(
             '\r\n    '.join(str(c) for c in make_list(self.command))
         )
 
@@ -256,9 +256,14 @@ class ExistsTest(namedtuple('ExistsTest', 'header'), Command):
     def __str__(self):
         return 'exists ' + string_list(self.header)
 
-class FalseTest(Command):
+class FalseTest(namedtuple('FalseTest', 'placeholder'), Command):
     """RFC 5228 Sec 5.6"""
+    def __new__(cls, placeholder=None):
+        return super().__new__(cls, placeholder)
+
     def __str__(self):
+        if self.placeholder:
+            return 'false # {}'.format(self.placeholder)
         return 'false'
 
 class HeaderTest(namedtuple('HeaderTest', 'header key match_type comparator'), Command):
@@ -310,7 +315,7 @@ class SetAction(namedtuple('SetAction', 'name value modifier'), Command):
         return super().__new__(cls, name, value, modifier)
 
     def requires(self):
-        yield 'variable'
+        yield 'variables'
 
     def __str__(self):
         return 'set{2} {0} {1};'.format(

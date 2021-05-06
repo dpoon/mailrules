@@ -85,6 +85,15 @@ def Vacation(procmail_context, args):
         def __new__(cls, reason, subject=None, from_addr=None, mime=False):
             return super().__new__(cls, reason, subject, from_addr, mime)
 
+    MISSING_VACATION_MESSAGE = VacationMessage(
+        'Content-Type: text/plain; format=flowed\r\n\r\n'
+        'I will not be reading my mail for a while. '
+        'Your mail concerning \r\n"$SUBJECT" \r\n'
+        'will be read when I return.',
+        subject='Re: $SUBJECT',
+        mime=True,
+    )
+
     class VacationMessageReader:
         def __init__(self, msg_path):
             self.msg_path = msg_path
@@ -97,7 +106,7 @@ def Vacation(procmail_context, args):
                 with open(procmail_context.resolve_path(self.msg_path), encoding='ISO-8859-1') as f:
                     msg = email.message_from_file(f, policy=email.policy.SMTPUTF8)
             except OSError:
-                raise ShellCommandException('No vacation message {}'.format(self.msg_path))
+                return MISSING_VACATION_MESSAGE
             subject = msg['Subject']
             del(msg['Subject'])
             from_addr = msg['From']
@@ -128,14 +137,16 @@ def Vacation(procmail_context, args):
     msg = invocation.read_vacation_msg()
     reason = msg.reason.replace('$SUBJECT', '${1}')
     subject = msg.subject.replace('$SUBJECT', '${1}') if msg.subject else None
+    test = None
+    if reason != msg.reason or subject != msg.subject:
+        test = sieve.HeaderTest('subject', "*", match_type=':matches')
     try:
         from_addr = invocation.fromaddr or msg.from_addr
         from_addr = procmail_context.resolve_email_address(from_addr)
     except KeyError as e:
         pass
     yield from procmail_context.context_chain(
-        sieve.HeaderTest('subject', "*", match_type=':matches')
-            if reason != msg.reason or subject != msg.subject else None,
+        sieve.FalseTest(placeholder=test) if msg == MISSING_VACATION_MESSAGE else test,
         [
             sieve.VacationAction(
                 reason=reason,
