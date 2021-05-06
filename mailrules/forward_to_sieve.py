@@ -60,8 +60,8 @@ except ImportError:
 """
 
 def ForwardFiles(ext_file_map, context):
-    for extension, forward_path in reversed(list(ext_file_map.items())):
-        yield from ForwardFile(
+    for extension, forward_path in ext_file_map.items():
+        yield extension, ForwardFile(
             forward_path,
             extension,
             context
@@ -79,20 +79,22 @@ def ForwardFile(path, extension, context):
     def is_to_myself(dest):
         return dest == '\\' + context.initial.getenv('LOGNAME') or \
                dest == context.initial.getenv('LOGNAME')
-    def interpret(expansion):
-        keep_copy = any(is_to_myself(e) for e in expansion)
-        for dest in expansion:
-            if mailbox_name(dest, context):
-                yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
+    def interpret(destinations, keep_copy):
+        for dest in destinations:
+            dest = re.sub(r'^"(.*)"$', r'\g<1>', dest) # Dequote
+            if is_to_myself(dest):
+                pass
+            elif dest == '/dev/null':
+                pass
             elif dest.startswith('|'):
                 try:
                     yield from parse_cmdline(context, re.sub(r'^\|', '', dest))
                 except ShellCommandException as e:
                     yield proc_to_sieve.FIXME('{}: ({})'.format(str(e), dest))
             elif dest.startswith(':include:'):
-                yield sieve.FIXME(dest) # Pipes not supported
-            elif is_to_myself(dest):
-                pass
+                yield proc_to_sieve.FIXME(dest) # Pipes not supported
+            elif mailbox_name(dest, context):
+                yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
             else:
                 yield sieve.RedirectAction(dest, copy=keep_copy)
         if not keep_copy:
@@ -116,11 +118,11 @@ def ForwardFile(path, extension, context):
                 ))
             ]
 
-    expansion = re.findall(r'(?:"(?:\\.|[^"])*"|[^,\s])+', contents)
+    destinations = re.findall(r'\s*((?:\|\s*)?(?:"[^"]*"|[^, ])+)', contents)
+    keep_copy = (not destinations) or any(is_to_myself(e) for e in destinations)
     test = sieve.AddressTest('Bcc', extension, address_part=':detail') if extension else sieve.TrueTest()
 
-
-    yield from context.context_chain(
+    return keep_copy, context.context_chain(
         test,
-        provenance + list(interpret(expansion))
+        provenance + list(interpret(destinations, keep_copy))
     )

@@ -3,7 +3,7 @@
 # Copyright 2020-2021 Dara Poon and the University of British Columbia
 
 import argparse
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from glob import glob
 import os
 import pwd
@@ -53,10 +53,12 @@ def conversion_context(opts):
     if not os.path.isfile(procmailrc_path):
         procmailrc_path = None
 
-    forward_paths = glob(procmail_context.resolve_path('.forward')) + list(filter(
-        lambda path: re.fullmatch(r'\.forward\+[A-Za-z0-9_]+', os.path.basename(path)),
-        glob(procmail_context.resolve_path('.forward+*'))
-    ))
+    forward_paths = list(
+        filter(
+            lambda path: re.fullmatch(r'\.forward\+[A-Za-z0-9_]+', os.path.basename(path)),
+            glob(procmail_context.resolve_path('.forward+*'))
+        )
+    ) + glob(procmail_context.resolve_path('.forward'))
 
     return namedtuple('ConversionContext',
             'forward_paths procmailrc_path procmail_context')(
@@ -65,21 +67,31 @@ def conversion_context(opts):
         procmail_context
     )
 
+def sieve_commands(conversion_context):
+    procmail_context = conversion_context.procmail_context
+    ext_forwards = OrderedDict(mailrules.forward_to_sieve.ForwardFiles(
+        conversion_context.forward_paths,
+        procmail_context
+    ))
+    for ext in (e for e in ext_forwards if e):
+        _, sieve_commands = ext_forwards[ext]
+        yield from sieve_commands
+    if '' in ext_forwards:
+        keep_copy, sieve_commands = ext_forwards['']
+        yield from sieve_commands
+        if not keep_copy:
+            return
+    if conversion_context.procmailrc_path:
+        yield from mailrules.proc_to_sieve.Procmailrc(
+            conversion_context.procmailrc_path,
+            procmail_context
+        )
+
 def main():
     conv = conversion_context(parse_args())
     out = mailrules.sieve.Script()
-
-    for cmd in mailrules.forward_to_sieve.ForwardFiles(
-                conv.forward_paths, conv.procmail_context,
-            ):
+    for cmd in sieve_commands(conv):
         out.add_command(cmd)
-
-    if conv.procmailrc_path:
-        for cmd in mailrules.proc_to_sieve.Procmailrc(
-                    conv.procmailrc_path, conv.procmail_context,
-                ):
-            out.add_command(cmd)
-
     sieve_script_text = str(out)
     if sieve_script_text:
         print(sieve_script_text, end='\r\n')
