@@ -86,8 +86,6 @@ def Test(recipe_flags, recipe_conditions, context):
                 lambda m: '*' if m.group(1) else '?' if m.group(2) else m.group(3) if m.group(3) else m.group(4),
                 wildcard.group(2)
             )
-            if not(wildcard.group(1) or rhs_string.startswith('*')):
-                rhs_string = '*' + rhs_string
             if not(wildcard.group(3) or rhs_string.endswith('*')):
                 rhs_string = rhs_string + '*'
             return ':matches', rhs_string
@@ -109,7 +107,7 @@ def Test(recipe_flags, recipe_conditions, context):
         if envelope_from:
             rel, rhs = analyze_rhs(envelope_from.group('value_re'))
             return sieve.EnvelopeTest('from', rhs, rel)
-        literal_headers = re.fullmatch(r'\^(\()?(?P<headers>(\|?[A-Za-z0-9_-]+)*)(?(1)\)|): ?(?P<value_re>.*)', r)
+        literal_headers = re.fullmatch(r'\^(\()?(?P<headers>(\|?[A-Za-z0-9_-]+)*)(?(1)\):? ?|: ?)(?P<value_re>.*)', r)
         if literal_headers:
             headers = literal_headers.group('headers').split('|')
             rel, rhs = analyze_rhs(literal_headers.group('value_re'))
@@ -177,7 +175,11 @@ def Test(recipe_flags, recipe_conditions, context):
     cond = recipe_conditions[0]
 
     test = None
-    if cond.get('regexp') and recipe_flags.get('H', True):
+    if cond.get('variablename', 'H') != 'H':
+        pass # FIXME: Don't know how to do body or environment tests yet
+    elif cond.get('variablename', 'H') != 'H':
+        test = env_regexp_test(cond.get('regexp'))
+    elif cond.get('regexp') and recipe_flags.get('H', True):
         test = header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
     elif cond.get('program_exitcode'):
         try:

@@ -1,6 +1,4 @@
-#!/usr/bin/python3
-
-# Copyright 2020 Dara Poon and the University of British Columbia
+# Copyright 2020-2021 Dara Poon and the University of British Columbia
 
 from collections import namedtuple
 import re
@@ -110,7 +108,7 @@ class Recipe(namedtuple('Recipe', 'flags conditions action')):
                     r'|(?P<weight>[+-]?(?:\d*\.)?\d+)^(?P<exponent>[+-]?(?:\d*\.)?\d+)\s*'
                     r'|(?P<invert>!)'
                     r'|(?P<shell>\$)'
-                    r'|(?P<variablename>\S+)\s*\?\?'
+                    r'|(?P<variablename>\S+?)\s*\?\?'
                     r'|\?\s*(?P<program_exitcode>.*)'
                     r'|\<\s*(?P<shorter_than>\d+)\s*$'
                     r'|\>\s*(?P<longer_than>\d+)\s*$'
