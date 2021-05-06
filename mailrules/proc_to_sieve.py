@@ -357,7 +357,12 @@ def Recipe(recipe, context):
                 sieve.EnvelopeTest('to', "*", match_type=':matches', address_part=':detail'),
                 sieve.MailboxExistsTest('INBOX.${1}'),
             ),
-            list(Action(recipe.flags, recipe.action, ProcmailContext(env={'EXTENSION': '${1}'}, parent=context)))
+            [sieve.SetAction('subaddress', '${1}')] +
+            list(Action(
+                recipe.flags,
+                recipe.action,
+                ProcmailContext(env={'EXTENSION': '${subaddress}'}, parent=context)
+            ))
         )
     else:
         test = Test(recipe.flags, recipe.conditions, context) if recipe.conditions else None
