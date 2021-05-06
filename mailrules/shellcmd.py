@@ -60,8 +60,14 @@ def Vacation(procmail_context, args):
             self.msg_path = msg_path
 
         def __call__(self):
-            with open(procmail_context.resolve_path(self.msg_path), 'rb') as f:
-                msg = email.message_from_binary_file(f, policy=email.policy.SMTPUTF8)
+            try:
+                with open(procmail_context.resolve_path(self.msg_path), encoding='UTF-8') as f:
+                    msg = email.message_from_file(f, policy=email.policy.SMTPUTF8)
+            except UnicodeDecodeError:
+                with open(procmail_context.resolve_path(self.msg_path), encoding='ISO-8859-1') as f:
+                    msg = email.message_from_file(f, policy=email.policy.SMTPUTF8)
+            except OSError:
+                raise ShellCommandException('No vacation message {}'.format(self.msg_path))
             subject = msg['Subject']
             del(msg['Subject'])
             from_addr = msg['From']
@@ -89,15 +95,7 @@ def Vacation(procmail_context, args):
         help='Set the envelope sender of the reply message to "<>"')
 
     invocation = p.parse_args(args)
-    try:
-        msg = invocation.read_vacation_msg()
-    except OSError:
-        msg = VacationMessage(
-            'I will not be reading my mail for a while. '
-            'Your mail concerning "$SUBJECT" '
-            'will be read when I return.',
-        )
-
+    msg = invocation.read_vacation_msg()
     reason = msg.reason.replace('$SUBJECT', '${1}')
     subject = msg.subject.replace('$SUBJECT', '${1}') if msg.subject else None
     try:
