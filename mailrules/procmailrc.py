@@ -168,22 +168,20 @@ class Parser:
         self.nest_level = 0
 
     @staticmethod
-    def numbered_line_iter(lines):
-        def pushback_iter(iter):
-            while True:
-                try:
-                    item = next(iter)
-                except StopIteration:
-                    return
-                item = yield item
-                if item is not None:
-                    yield
-                    yield item
-        return pushback_iter(
+    def numbered_folded_line_iter(lines):
+        numbered_line_iter = (
             (line_num, line.strip())
             for line_num, line in enumerate(lines, 1)
             if not re.match(r'^\s*(?:#|$)', line)
         )
+        for line_num, line in numbered_line_iter:
+            while line.endswith('\\'):
+                _, next_line = next(numbered_line_iter)
+                line = re.sub(r'\\$', '', line) + next_line
+            pushback = yield line_num, line
+            if pushback is not None:
+                yield
+                yield pushback
 
     def parse_rules(self, numbered_line_iter):
         for line_num, line in numbered_line_iter:

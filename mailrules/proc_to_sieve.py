@@ -397,7 +397,7 @@ def Procmailrc(procmailrc_path, context, provenance_comments=False):
 
     with open(procmailrc_path) as f:
         parser = procmailrc.Parser(procmailrc_path)
-        procmail_rules = list(parser.parse_rules(parser.numbered_line_iter(f)))
+        procmail_rules = list(parser.parse_rules(parser.numbered_folded_line_iter(f)))
         if provenance_comments:
             mtime = os.fstat(f.fileno()).st_mtime
             yield sieve.Comment('Converted from {} ({})'.format(
