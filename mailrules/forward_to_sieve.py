@@ -100,23 +100,26 @@ def ForwardFile(path, extension, context):
         if not keep_copy:
             yield sieve.StopControl()
 
-    with open(path) as f:
-        contents = ' '.join(
-            line.strip()
-            for line in f
-            if not line.startswith('#')
-        )
-        if not context.emit_provenance_comments:
-            provenance = []
-        else:
-            mtime = os.fstat(f.fileno()).st_mtime
-            tz = dateutil.tz.gettz(os.getenv('TZ'))
-            provenance = [
-                sieve.Comment('Converted from {} ({})'.format(
-                    path,
-                    datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
-                ))
-            ]
+    try:
+        with open(path) as f:
+            contents = ' '.join(
+                line.strip()
+                for line in f
+                if not line.startswith('#')
+            )
+            if not context.emit_provenance_comments:
+                provenance = []
+            else:
+                mtime = os.fstat(f.fileno()).st_mtime
+                tz = dateutil.tz.gettz(os.getenv('TZ'))
+                provenance = [
+                    sieve.Comment('Converted from {} ({})'.format(
+                        path,
+                        datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
+                    ))
+                ]
+    except OSError as e:
+        return True, [sieve.Comment("Error reading {} ({})".format(path, e))]
 
     destinations = re.findall(r'\s*((?:\|\s*)?(?:"[^"]*"|[^, ])+)', contents)
     keep_copy = (not destinations) or any(is_to_myself(e) for e in destinations)
