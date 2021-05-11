@@ -208,7 +208,7 @@ def Action(flags, action, context):
             action = action[0].action
 
     if isinstance(action, procmailrc.Assignment):
-        yield sieve.SetAction(action.variable, action.value)
+        yield sieve.SetAction(action.variable, context.interpolate(action.value))
     elif isinstance(action, procmailrc.Mailbox):
         dest_mailbox = mailbox_name(context.interpolate(action.destination))
         if not flags.get('c', False):
@@ -393,7 +393,7 @@ def ProcmailrcGeneral(procmail_rules, context):
                     if rule.variable not in ('PATH', 'LOCKFILE', 'LOGFILE', 'VERBOSE', 'LOGABSTRACT', 'SHELL', 'MAILDIR', 'DEFAULT', 'ORGMAIL'):
                         # This variable is not just for Procmail.  Maybe Sieve needs to know?
                         # TODO
-                        yield sieve.SetAction(rule.variable, rule.value)
+                        yield sieve.SetAction(rule.variable, context.interpolate(rule.value))
         elif isinstance(rule, procmailrc.Recipe):
             if context.chain_type == 'else' and not rule.conditions:
                 # Slurp the rest in an else
