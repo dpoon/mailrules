@@ -274,6 +274,9 @@ class HeaderTest(namedtuple('HeaderTest', 'header key match_type comparator'), C
     def requires(self):
         if self.match_type == ':matches':
             yield 'variables'
+        if self.match_type == ':regex':
+            # https://datatracker.ietf.org/doc/html/draft-murchison-sieve-regex-08
+            yield 'regex'
 
     @property
     def name(self):

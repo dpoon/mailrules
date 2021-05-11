@@ -90,7 +90,7 @@ def Test(recipe_flags, recipe_conditions, context):
                 rhs_string = rhs_string + '*'
             return ':matches', rhs_string
         else:
-            return ':regexp', s
+            return ':regex', s
 
     def header_heuristic_fixup(r):
         # When people write From.*blah or ^Subject.*blah, they probably mean
@@ -115,7 +115,7 @@ def Test(recipe_flags, recipe_conditions, context):
         elif r == '^FROM_DAEMON':
             return sieve.AnyofTest(
                 sieve.ExistsTest('Mailing-List'),
-                sieve.HeaderTest('Precedence', '.*(junk|bulk|list)', match_type=':regexp'),
+                sieve.HeaderTest('Precedence', '.*(junk|bulk|list)', match_type=':regex'),
                 sieve.HeaderTest('To', 'Multiple recipients of *', match_type=':matches'),
                 sieve.AddressTest(
                     ['From', 'Sender', 'Resent-From', 'Resent-Sender', 'X-Envelope-From'],
@@ -136,7 +136,7 @@ def Test(recipe_flags, recipe_conditions, context):
                         '|A(dmin(istrator)?|MMGR|utoanswer)'
                      ').*'
                     ,
-                    match_type=':regexp',
+                    match_type=':regex',
                     address_part=':localpart'
                 )
             )
@@ -157,7 +157,7 @@ def Test(recipe_flags, recipe_conditions, context):
                         '|A(dmin(istrator)?|MMGR)'
                      ').*'
                     ,
-                    match_type=':regexp',
+                    match_type=':regex',
                     address_part=':localpart'
                 )
             )
