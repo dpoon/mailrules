@@ -77,8 +77,8 @@ def mailbox_name(s, context):
 
 def ForwardFile(path, extension, context):
     def is_to_myself(dest):
-        return dest == '\\' + context.initial.getenv('LOGNAME') or \
-               dest == context.initial.getenv('LOGNAME')
+        me = context.initial.getenv('LOGNAME')
+        return dest in (me, '\\' + me, me + '@' + context.initial.email_domain)
     def interpret(destinations, keep_copy):
         for dest in destinations:
             dest = re.sub(r'^"(.*)"$', r'\g<1>', dest) # Dequote
