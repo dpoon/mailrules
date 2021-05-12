@@ -25,7 +25,7 @@ def make_list(obj):
 
 ######################################################################
 
-class Command:
+class Command(namedtuple('Command', [])):
     def requires(self):
         # Generator that yields nothing (https://stackoverflow.com/a/13243870)
         return
@@ -326,6 +326,51 @@ class SetAction(namedtuple('SetAction', 'name value modifier'), Command):
             quote(self.value),
             ' ' + self.modifier if self.modifier else ''
         )
+
+class StringTest(namedtuple('StringTest', 'source key match_type comparator'), Command):
+    """RFC 5229 Sec 5"""
+    def __new__(cls, source, key, match_type=':is', comparator='i;ascii-casemap'):
+        return super().__new__(cls, source, key, match_type, comparator)
+
+    def requires(self):
+        yield 'variables'
+        if self.match_type == ':count':
+            yield 'relational'
+
+    def __str__(self):
+        s = 'string'
+        if self.comparator != 'i;ascii-casemap':
+            s += ' :comparator ' + quote(self.comparator)
+        s += ' ' + self.match_type
+        s += ' ' + string_list(self.source)
+        s += ' ' + string_list(self.key)
+        return s
+
+######################################################################
+
+class NotifyAction(namedtuple('NotifyAction', 'method message from_addr importance options'), Command):
+    """RFC 5435 Sec 3"""
+    def __new__(cls, method, message=None, from_addr=None, importance='2', options=None):
+        return super().__new__(cls, method, message, from_addr, importance, options)
+
+    def requires(self):
+        yield 'enotify'
+
+    @property
+    def name(self):
+        return self.method
+
+    def __str__(self):
+        s = 'notify'
+        if self.from_addr:
+            s += ' :from {0}'.format(quote(self.from_addr))
+        if str(self.importance) != '2':
+            s += ' :importance {0}'.format(self.importance)
+        if self.options:
+            s += ' :options {0}'.format(string_list(self.options))
+        if self.message:
+            s += ' :message {0}'.format(quote(self.message))
+        return s + ' ' + quote(self.method) + ';'
 
 ######################################################################
 
