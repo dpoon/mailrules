@@ -9,6 +9,10 @@ import os
 import pwd
 import re
 import sys
+try:
+    from mailrules.custom import post_process
+except ImportError:
+    post_process = lambda script, conversion_context: script
 import mailrules.forward_to_sieve
 import mailrules.procmailrc
 import mailrules.proc_to_sieve
@@ -92,6 +96,7 @@ def main():
     out = mailrules.sieve.Script()
     for cmd in sieve_commands(conv):
         out.add_command(cmd)
+    out = post_process(out, conv)
     sieve_script_text = str(out)
     if sieve_script_text:
         print(sieve_script_text, end='\r\n')
