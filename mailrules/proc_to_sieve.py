@@ -113,53 +113,65 @@ def Test(recipe_flags, recipe_conditions, context):
             rel, rhs = analyze_rhs(literal_headers.group('value_re'))
             return sieve.HeaderTest(headers if len(headers) > 1 else headers[0], rhs, rel)
         elif r == '^FROM_DAEMON':
+            FROM_DAEMON = ('('
+                'Post(ma?(st(e?r)?|n)|office)'
+                '|(send)?Mail(er)?'
+                '|daemon'
+                '|m(mdf|ajordomo)'
+                '|n?uucp'
+                '|LIST(SERV|proc)'
+                '|NETSERV'
+                '|o(wner|ps)'
+                '|r(e(quest|sponse)|oot)'
+                '|b(bounce|bs\.smtp)'
+                '|echo'
+                '|mirror'
+                '|s(erv(ices?|er)|mtp(error)?|ystem)'
+                '|A(dmin(istrator)?|MMGR|utoanswer)'
+            ').*')
             return sieve.AnyofTest(
                 sieve.ExistsTest('Mailing-List'),
                 sieve.HeaderTest('Precedence', '.*(junk|bulk|list)', match_type=':regex'),
                 sieve.HeaderTest('To', 'Multiple recipients of *', match_type=':matches'),
                 sieve.AddressTest(
-                    ['From', 'Sender', 'Resent-From', 'Resent-Sender', 'X-Envelope-From'],
-                     '(?:'
-                        'Post(ma?(st(e?r)?|n)|office)'
-                        '|(send)?Mail(er)?'
-                        '|daemon'
-                        '|m(mdf|ajordomo)'
-                        '|n?uucp'
-                        '|LIST(SERV|proc)'
-                        '|NETSERV'
-                        '|o(wner|ps)'
-                        '|r(e(quest|sponse)|oot)'
-                        '|b(bounce|bs\.smtp)'
-                        '|echo'
-                        '|mirror'
-                        '|s(erv(ices?|er)|mtp(error)?|ystem)'
-                        '|A(dmin(istrator)?|MMGR|utoanswer)'
-                     ').*'
-                    ,
+                    ['From', 'Sender', 'Resent-From', 'Resent-Sender'],
+                    FROM_DAEMON,
                     match_type=':regex',
                     address_part=':localpart'
-                )
+                ),
+                sieve.EnvelopeTest(
+                    ['From'],
+                    FROM_DAEMON,
+                    match_type=':regex',
+                    address_part=':localpart'
+                ),
             )
         elif r == '^FROM_MAILER':
+            FROM_MAILER = ('('
+                'Post(ma?(st(e?r)?|n)|office)'
+                '|(send)?Mail(er)?'
+                '|daemon'
+                '|mmdf'
+                '|n?uucp'
+                '|ops'
+                '|r(esponse|oot)'
+                '|(bbs\.)?smtp(error)?'
+                '|s(erv(ices?|er)|ystem)'
+                '|A(dmin(istrator)?|MMGR)'
+            ').*')
             return sieve.AnyofTest(
                 sieve.AddressTest(
-                    ['From', 'Sender', 'Resent-From', 'Resent-Sender', 'X-Envelope-From'],
-                     '(?:'
-                        'Post(ma?(st(e?r)?|n)|office)'
-                        '|(send)?Mail(er)?'
-                        '|daemon'
-                        '|mmdf'
-                        '|n?uucp'
-                        '|ops'
-                        '|r(esponse|oot)'
-                        '|(bbs\.)?smtp(error)?'
-                        '|s(erv(ices?|er)|ystem)'
-                        '|A(dmin(istrator)?|MMGR)'
-                     ').*'
-                    ,
+                    ['From', 'Sender', 'Resent-From', 'Resent-Sender'],
+                    FROM_MAILER,
                     match_type=':regex',
                     address_part=':localpart'
-                )
+                ),
+                sieve.EnvelopeTest(
+                    ['From'],
+                    FROM_MAILER,
+                    match_type=':regex',
+                    address_part=':localpart'
+                ),
             )
         elif r.startswith('^TO'):
             rel, rhs = analyze_rhs(re.sub(r'\^TO[_ ]?', '', r))
