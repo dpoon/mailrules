@@ -53,6 +53,8 @@ def conversion_context(opts):
         provenance_comments=opts.provenance_comments,
     )
 
+    if not os.path.isdir(procmail_context.resolve_path('')):
+        error("No home directory for user {0}".format(opts.user))
     procmailrc_path = procmail_context.resolve_path('.procmailrc')
     if not os.path.isfile(procmailrc_path):
         procmailrc_path = None
