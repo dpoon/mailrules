@@ -5,6 +5,7 @@ from collections import namedtuple
 from datetime import datetime
 import email
 import email.policy
+from email.utils import formataddr, parseaddr
 import os.path
 import re
 import shlex
@@ -117,7 +118,7 @@ def Vacation(procmail_context, args):
 
     p = SilentArgumentParser(prog='vacation')
     p.add_argument('login')
-    p.add_argument('-a', metavar='alias', dest='alias', action='append',
+    p.add_argument('-a', metavar='alias', dest='aliases', action='append',
         help="Handle messages for alias in the same manner as those received for the user's login name.")
     p.add_argument('-c', metavar='ccaddr', dest='ccaddr',
         help="Copy the vacation messages to ccaddr (ignored by Sieve)")
@@ -130,7 +131,7 @@ def Vacation(procmail_context, args):
         help="Uses msg as the mssage file")
     p.add_argument('-j', action='store_true',
         help='Reply to the message even if our address cannot be found in the “To:” or “Cc:” headers (ignored by Sieve)')
-    p.add_argument('-z', dest='fromaddr', action='store_const', const='<>',
+    p.add_argument('-z', dest='nullsender', type=bool,
         help='Set the envelope sender of the reply message to "<>"')
 
     invocation = p.parse_args(args)
@@ -140,11 +141,20 @@ def Vacation(procmail_context, args):
     test = None
     if reason != msg.reason or subject != msg.subject:
         test = sieve.HeaderTest('subject', "*", match_type=':matches')
-    try:
-        from_addr = invocation.fromaddr or msg.from_addr
-        from_addr = procmail_context.resolve_email_address(from_addr)
-    except KeyError as e:
-        pass
+
+    if invocation.nullsender:
+        from_addr = None
+    else:
+        realname, email_address = parseaddr(msg.from_addr)
+        if ' ' in email_address and not realname:
+            # Heuristic fixup
+            realname, email_address = msg.from_addr.addresses[0].username, None
+        if not email_address:
+            email_address = invocation.aliases[0] if invocation.aliases else invocation.login
+        if not realname and (email_address == procmail_context.initial.getenv('LOGNAME')):
+            email_address = None
+        from_addr = formataddr((realname, procmail_context.resolve_email_address(email_address)))
+
     yield from procmail_context.context_chain(
         sieve.FalseTest(placeholder=test) if msg == MISSING_VACATION_MESSAGE else test,
         [
@@ -152,7 +162,7 @@ def Vacation(procmail_context, args):
                 reason=reason,
                 subject=subject,
                 from_addr=from_addr,
-                addresses=invocation.alias,
+                addresses=invocation.aliases,
                 mime=msg.mime,
             )
         ]
