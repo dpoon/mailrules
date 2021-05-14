@@ -228,6 +228,8 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
         if self.address_part == ':detail':
             # RFC 5233: Subaddress extension
             yield 'subaddress'
+        if self.match_type == ':regex':
+            yield 'regex'
         if self.match_type == ':matches':
             yield 'variables'
 
