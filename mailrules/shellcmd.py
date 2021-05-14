@@ -162,7 +162,11 @@ def Vacation(procmail_context, args):
                 reason=reason,
                 subject=subject,
                 from_addr=from_addr,
-                addresses=invocation.aliases,
+                addresses=[
+                    procmail_context.resolve_email_address(a)
+                    for a in invocation.aliases
+                    or []
+                ],
                 mime=msg.mime,
             )
         ]
