@@ -341,9 +341,9 @@ class ProcmailContext:
         return self._initial
 
     def context_chain(self, test, actions):
-        #print("context chain self={} test={} actions={} nest_level={}".format(self, test, actions, self.nest_level))
+        #print("context chain self={} nest_level={} test={} actions={}".format(self, self.nest_level, test, actions))
         if test is None and self.chain_type is None:
-            if self.nest_level > 1:
+            if self.nest_level > 0:
                 yield from actions
             else:
                 yield sieve.IfControl(sieve.TrueTest(), actions)
@@ -380,7 +380,7 @@ def Recipe(recipe, context):
         test = Test(recipe.flags, recipe.conditions, context) if recipe.conditions else None
         yield from context.context_chain(
             test,
-            list(Action(recipe.flags, recipe.action, context))
+            list(Action(recipe.flags, recipe.action, ProcmailContext(context)))
         )
 
 ######################################################################
