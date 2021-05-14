@@ -148,6 +148,12 @@ class Recipe(namedtuple('Recipe', 'flags conditions action')):
 
 ######################################################################
 
+class Nonsense(namedtuple('Nonsense', 'filename line_num message')):
+    def __str__(self):
+        return '{0.message} at {0.filename} line {0.line_num}'.format(self)
+
+######################################################################
+
 class Assignment(namedtuple('Assignment', 'variable assign value')):
     @classmethod
     def parse(cls, parser, line_num, line):
@@ -187,15 +193,18 @@ class Parser:
         for line_num, line in numbered_line_iter:
             if line.lstrip() == '}':
                 if self.nest_level <= 0:
-                    raise ValueError('Unmatched "}}" at file {0} line {1}'.format(self.filename, line_num))
+                    yield Nonsense(self.filename, line_num, 'Unmatched "}"')
                 self.nest_level -= 1
                 break
             elif line.lstrip().startswith(':0'):
                 numbered_line_iter.send((line_num, line))
                 yield Recipe.parse(self, numbered_line_iter)
             else:
-                yield Assignment.parse(self, line_num, line)
+                try:
+                    yield Assignment.parse(self, line_num, line)
+                except ValueError:
+                    yield Nonsense(self.filename, line_num, line)
         else:
             # Exited loop because no more lines.  Assert that nest_level == 0.
             if self.nest_level:
-                raise ValueError('Unmatched braces at EOF in {0}'.format(self.filename))
+                yield Nonsense(self.filename, line_num, 'Unmatched "{" at EOF')

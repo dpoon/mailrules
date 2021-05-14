@@ -387,25 +387,26 @@ def Recipe(recipe, context):
 
 def ProcmailrcGeneral(procmail_rules, context):
     for rule in procmail_rules:
-        if isinstance(rule, procmailrc.Assignment):
-            if isinstance(rule, procmailrc.Assignment):
-                if rule.variable in ['HOST', 'SWITCHRC']:
-                    # FIXME: Unsupported special assignments
-                    yield FIXME(rule, placeholder=sieve.StopControl())
-                elif rule.variable == 'INCLUDERC':
-                    try:
-                        yield from Procmailrc(
-                            context.resolve_path(context.interpolate(rule.value), context.getenv('MAILDIR')),
-                            ProcmailContext(parent=context, chain_type=None)
-                        )
-                    except OSError:
-                        yield FIXME(sieve.IncludeControl(context.interpolate(rule.value)))
-                else:
-                    context.setenv(rule.variable, rule.value)
-                    if rule.variable not in ('PATH', 'LOCKFILE', 'LOGFILE', 'VERBOSE', 'LOGABSTRACT', 'SHELL', 'MAILDIR', 'DEFAULT', 'ORGMAIL'):
-                        # This variable is not just for Procmail.  Maybe Sieve needs to know?
-                        # TODO
-                        yield sieve.SetAction(rule.variable, context.interpolate(rule.value))
+        if isinstance(rule, procmailrc.Nonsense):
+            yield FIXME("Invalid procmailrc file {0.filename} at line {0.line_num}: {0.message}".format(rule))
+        elif isinstance(rule, procmailrc.Assignment):
+            if rule.variable in ['HOST', 'SWITCHRC']:
+                # FIXME: Unsupported special assignments
+                yield FIXME(rule, placeholder=sieve.StopControl())
+            elif rule.variable == 'INCLUDERC':
+                try:
+                    yield from Procmailrc(
+                        context.resolve_path(context.interpolate(rule.value), context.getenv('MAILDIR')),
+                        ProcmailContext(parent=context, chain_type=None)
+                    )
+                except OSError:
+                    yield FIXME(sieve.IncludeControl(context.interpolate(rule.value)))
+            else:
+                context.setenv(rule.variable, rule.value)
+                if rule.variable not in ('PATH', 'LOCKFILE', 'LOGFILE', 'VERBOSE', 'LOGABSTRACT', 'SHELL', 'MAILDIR', 'DEFAULT', 'ORGMAIL'):
+                    # This variable is not just for Procmail.  Maybe Sieve needs to know?
+                    # TODO
+                    yield sieve.SetAction(rule.variable, context.interpolate(rule.value))
         elif isinstance(rule, procmailrc.Recipe):
             if context.chain_type == 'else' and not rule.conditions:
                 # Slurp the rest in an else
