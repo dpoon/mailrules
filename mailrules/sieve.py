@@ -35,6 +35,9 @@ class Command(namedtuple('Command', [])):
     def name(self):
         return ''
 
+    def __eq__(self, other):
+        return type(self) == type(other) and super().__eq__(other)
+
 class Comment(namedtuple('Comment', 'text'), Command):
     """RFC 5228 Sec 2.3"""
     def __str__(self):
