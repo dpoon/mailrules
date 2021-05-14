@@ -96,7 +96,7 @@ def ForwardFile(path, extension, context):
             elif mailbox_name(dest, context):
                 yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
             else:
-                yield sieve.RedirectAction(dest, copy=keep_copy)
+                yield sieve.RedirectAction(context.resolve_email_address(dest), copy=keep_copy)
         if not keep_copy:
             yield sieve.StopControl()
 
