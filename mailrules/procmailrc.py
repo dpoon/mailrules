@@ -108,7 +108,7 @@ class Recipe(namedtuple('Recipe', 'flags conditions action')):
                     r'|(?P<weight>[+-]?(?:\d*\.)?\d+)^(?P<exponent>[+-]?(?:\d*\.)?\d+)\s*'
                     r'|(?P<invert>!)'
                     r'|(?P<shell>\$)'
-                    r'|(?P<variablename>\S+?)\s*\?\?'
+                    r'|(?P<variablename>[A-Za-z_][A-Za-z_0-9]*)\s*\?\?'
                     r'|\?\s*(?P<program_exitcode>.*)'
                     r'|\<\s*(?P<shorter_than>\d+)\s*$'
                     r'|\>\s*(?P<longer_than>\d+)\s*$'
@@ -151,7 +151,7 @@ class Recipe(namedtuple('Recipe', 'flags conditions action')):
 class Assignment(namedtuple('Assignment', 'variable assign value')):
     @classmethod
     def parse(cls, parser, line_num, line):
-        match = re.fullmatch(r'(?P<var>[^\s=]+)\s*(?:(?P<assign>=)?\s*(?P<val>.*?))?\s*(?:#.*)?', line)
+        match = re.fullmatch(r'(?P<var>[A-Za-z_][A-Za-z_0-9]*)\s*(?:(?P<assign>=)?\s*(?P<val>.*?))?\s*(?:#.*)?', line)
         if match is None:
             raise ValueError('Invalid assignment at file {0} line {1}: "{2}"'.format(parser.filename, line_num, line))
         return cls(match.group('var'), match.group('assign'), match.group('val'))
