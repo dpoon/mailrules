@@ -7,6 +7,7 @@ from itertools import chain, product, repeat, takewhile
 import os
 import re
 import shlex
+from mailrules import UnresolvedLocalEmailAddressException
 import mailrules.procmailrc as procmailrc
 from mailrules.shellcmd import parse_cmdline, ShellCommandException
 import mailrules.sieve as sieve
@@ -286,7 +287,7 @@ class ProcmailContext:
             else None
         )
         if d is None:
-            raise KeyError('email domain is unspecified')
+            raise UnresolvedLocalEmailAddressException()
         return d
 
     def interpolate(self, s):

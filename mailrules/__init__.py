@@ -1,0 +1,2 @@
+class UnresolvedLocalEmailAddressException(Exception):
+    pass
