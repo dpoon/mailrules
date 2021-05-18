@@ -391,7 +391,13 @@ class ProcmailContext:
 ######################################################################
 
 def Recipe(recipe, context):
-    if HAS_COND_MAIL_EXTENSION(recipe):
+    unsupported_flags = ''.join(f for f in 'DAaEef' if f in recipe.flags)
+    if unsupported_flags:
+        yield from context.context_chain(
+            FIXME("Unsupported recipe flag {}".format(unsupported_flags), placeholder=sieve.FalseTest()),
+            list(Action(recipe.flags, recipe.action, ProcmailContext(context)))
+        )
+    elif HAS_COND_MAIL_EXTENSION(recipe):
         # FIXME: the recipe could have additional conditions (though in practice, unlikely)
         yield from context.context_chain(
             sieve.AllofTest(
