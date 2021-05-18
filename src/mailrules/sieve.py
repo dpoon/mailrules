@@ -36,7 +36,6 @@ def string_list(obj):
 def make_list(obj):
     return list(obj) if isinstance(obj, (list, set)) else [obj]
 
-######################################################################
 
 class Command(namedtuple('Command', [])):
     def requires(self):
@@ -50,6 +49,34 @@ class Command(namedtuple('Command', [])):
 
     def __eq__(self, other):
         return type(self) == type(other) and super().__eq__(other)
+
+######################################################################
+
+class BodyTest(namedtuple('BodyTest', 'key match_type comparator body_transform'), Command):
+    """RFC 5173 Sec 4"""
+    def __new__(cls, key, match_type=':is', comparator='i;ascii-casemap', body_transform=':text'):
+        return super().__new__(cls, key, match_type, comparator, body_transform)
+
+    def requires(self):
+        yield 'body'
+        if self.match_type == ':regex':
+            yield 'regex'
+
+    @property
+    def name(self):
+        return 'Body {}'.format(self.key)
+
+    def __str__(self):
+        s = 'body'
+        if self.comparator != 'i;ascii-casemap':
+            s += ' :comparator ' + quote(self.comparator)
+        if self.match_type != ':is':
+            s += ' ' + self.match_type
+        if self.body_transform != ':text':
+            s += ' ' + self.body_transform
+        return s + ' ' + string_list(self.key)
+
+######################################################################
 
 class Comment(namedtuple('Comment', 'text'), Command):
     """RFC 5228 Sec 2.3"""

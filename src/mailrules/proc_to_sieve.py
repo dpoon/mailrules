@@ -85,8 +85,8 @@ class FIXME(namedtuple('FIXME', 'problem placeholder'), sieve.Command):
         return s + str(sieve.Comment('FIXME: {}'.format(self.problem)))
 
 def Test(recipe_flags, recipe_conditions, context):
-    def analyze_rhs(s):
-        literal_re = re.fullmatch(r'(\^)?((?:[ A-Za-z0-9@_*?-]|\\.)*)(\$)?', s)
+    def analyze_rhs(s, anchor_start=True):
+        literal_re = re.fullmatch(r'(\^)?((?:[ A-Za-z0-9@_-]|\\.)*)(\$)?', s)
         if literal_re:
             rhs_string = re.sub(r'\\(.)', r'\g<1>', literal_re.group(2))
             if literal_re.group(1) and literal_re.group(3):
@@ -100,6 +100,8 @@ def Test(recipe_flags, recipe_conditions, context):
                 lambda m: '*' if m.group(1) else '?' if m.group(2) else m.group(3) if m.group(3) else m.group(4),
                 wildcard.group(2)
             )
+            if not anchor_start and not(wildcard.group(1) or rhs_string.startswith('*')):
+                rhs_string = '*' + rhs_string
             if not(wildcard.group(3) or rhs_string.endswith('*')):
                 rhs_string = rhs_string + '*'
             return ':matches', rhs_string
@@ -195,23 +197,36 @@ def Test(recipe_flags, recipe_conditions, context):
             )), rhs, rel)
         return FIXME(r, placeholder=sieve.FalseTest())
 
+    def body_regexp_test(r):
+        rel, rhs = analyze_rhs(r, anchor_start=False)
+        return sieve.BodyTest(rhs, match_type=rel)
+
     assert isinstance(recipe_conditions, list) and len(recipe_conditions)
     if len(recipe_conditions) > 1:
         return sieve.AllofTest(*[Test(recipe_flags, [t], context) for t in recipe_conditions])
     cond = recipe_conditions[0]
 
     test = None
-    if cond.get('variablename', 'H') != 'H':
-        pass # FIXME: Don't know how to do body or environment tests yet
-    elif cond.get('variablename', 'H') != 'H':
-        test = env_regexp_test(cond.get('regexp'))
-    elif cond.get('regexp') and recipe_flags.get('H', True):
-        test = header_regexp_test(header_heuristic_fixup(cond.get('regexp')))
-    elif cond.get('program_exitcode'):
+    if cond.get('program_exitcode'):
         try:
             test = next(parse_cmdline(context, cond.get('program_exitcode')))
         except ShellCommandException as e:
             test = FIXME('{}: ({})'.format(str(e), cond.get('program_exitcode')), placeholder=sieve.FalseTest())
+    elif cond.get('regexp') and cond.get('variablename') not in (None, 'H', 'B', 'HB', 'BH'):
+        rel, rhs = analyze_rhs(cond['regexp'], anchor_start=False)
+        test = sieve.StringTest('${' + cond['variablename'] + '}', rhs, rel)
+    elif cond.get('regexp'):
+        test_target = cond.get('variablename') or recipe_flags
+        if 'H' in test_target and 'B' in test_target:
+            test = sieve.AnyofTest(
+                header_regexp_test(header_heuristic_fixup(cond['regexp'])),
+                body_regexp_test(cond['regexp'])
+            )
+        elif 'B' in test_target:
+            test = body_regexp_test(cond['regexp'])
+        else:
+            test = header_regexp_test(header_heuristic_fixup(cond['regexp']))
+
     if test is None:
         test = FIXME([recipe_flags, recipe_conditions], placeholder=sieve.FalseTest())
 
