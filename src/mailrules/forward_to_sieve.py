@@ -135,7 +135,7 @@ def ForwardFile(path, extension, context):
 
     destinations = re.findall(r'\s*((?:\|\s*)?(?:"[^"]*"|[^, ])+)', contents)
     keep_copy = (not destinations) or any(is_to_myself(e) for e in destinations)
-    test = sieve.AddressTest('Bcc', extension, address_part=':detail') if extension else sieve.TrueTest()
+    test = sieve.EnvelopeTest('to', extension, address_part=':detail') if extension else sieve.TrueTest()
 
     return keep_copy, context.context_chain(
         test,
