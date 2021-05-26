@@ -212,6 +212,10 @@ def Test(recipe_flags, recipe_conditions, context):
             test = next(parse_cmdline(context, cond.get('program_exitcode')))
         except ShellCommandException as e:
             test = FIXME('{}: ({})'.format(str(e), cond.get('program_exitcode')), placeholder=sieve.FalseTest())
+    elif cond.get('shorter_than'):
+        test = sieve.SizeTest(':under', cond['shorter_than'])
+    elif cond.get('longer_than'):
+        test = sieve.SizeTest(':over', cond['longer_than'])
     elif cond.get('regexp') and cond.get('variablename') not in (None, 'H', 'B', 'HB', 'BH'):
         rel, rhs = analyze_rhs(cond['regexp'], anchor_start=False)
         test = sieve.StringTest('${' + cond['variablename'] + '}', rhs, rel)

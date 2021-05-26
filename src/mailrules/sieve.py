@@ -349,6 +349,15 @@ class NotTest(namedtuple('NotTest', 'test'), Command):
     def __str__(self):
         return 'not ' + str(self.test)
 
+class SizeTest(namedtuple('SizeTest', 'over_under limit'), Command):
+    """RFC 5228 Sec 5.9"""
+    @property
+    def name(self):
+        return "Message size {} {}".format(self.over_under.replace(':', ''), self.limit)
+
+    def __str__(self):
+        return 'size {} {}'.format(self.over_under, self.limit)
+
 class TrueTest(Command):
     """RFC 5228 Sec 5.10"""
     def __str__(self):
