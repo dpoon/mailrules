@@ -122,7 +122,7 @@ def Test(recipe_flags, recipe_conditions, context):
         if envelope_from:
             rel, rhs = analyze_rhs(envelope_from.group('value_re'))
             return sieve.EnvelopeTest('from', rhs, rel)
-        literal_headers = re.fullmatch(r'\^(\()?(?P<headers>(\|?[A-Za-z0-9_-]+)*)(?(1)\):? ?|: ?)(?P<value_re>.*)', r)
+        literal_headers = re.fullmatch(r'\^(\()?(?P<headers>(\|?[A-Za-z0-9_-]+)*)(?(1)\):?|:)(\.(?!\*)| )?(?P<value_re>.*)', r)
         if literal_headers:
             headers = literal_headers.group('headers').split('|')
             rel, rhs = analyze_rhs(literal_headers.group('value_re'))
@@ -189,11 +189,20 @@ def Test(recipe_flags, recipe_conditions, context):
                 ),
             )
         elif r.startswith('^TO'):
-            rel, rhs = analyze_rhs(re.sub(r'\^TO[_ ]?', '', r))
-            return sieve.HeaderTest(list(chain(
+            tests = set(chain(
                 (a + b for a, b in product(['', 'Original-', 'Resent-'], ['To', 'Cc', 'Bcc'])),
                 ['X-Envelope-To', 'Apparently-To', 'Apparently-Resent-To']
-            )), rhs, rel)
+            ))
+            if r.startswith('^TO_'):
+                # '^TO_' should "catch all destination specifications containing a specific address"
+                test_type = sieve.AddressTest
+                # The following address tests are forbidden...
+                tests -= set(['Original-To', 'Original-Cc', 'Original-Bcc', 'Apparently-Resent-To', 'X-Envelope-To'])
+            else:
+                # '^TO' should "catch all destination specifications containing a specific word"
+                test_type = sieve.HeaderTest
+            rel, rhs = analyze_rhs(re.sub(r'\^TO_?(\.(?!\*)| )?', '', r))
+            return test_type(sorted(tests), rhs, rel)
         return FIXME(r, placeholder=sieve.FalseTest())
 
     def body_regexp_test(r):
