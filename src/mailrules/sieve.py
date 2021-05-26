@@ -39,9 +39,13 @@ def make_list(obj):
 
 class Command(namedtuple('Command', [])):
     def requires(self):
-        # Generator that yields nothing (https://stackoverflow.com/a/13243870)
-        return
-        yield
+        match_type = getattr(self, 'match_type', ':is')
+        if match_type == ':count' or match_type.startswith(':value'):
+            # RFC 5231 Sec 4.1
+            yield 'relational'
+        if match_type == ':regex':
+            # https://datatracker.ietf.org/doc/html/draft-murchison-sieve-regex-08
+            yield 'regex'
 
     @property
     def name(self):
@@ -58,9 +62,8 @@ class BodyTest(namedtuple('BodyTest', 'key match_type comparator body_transform'
         return super().__new__(cls, key, match_type, comparator, body_transform)
 
     def requires(self):
+        yield from super().requires()
         yield 'body'
-        if self.match_type == ':regex':
-            yield 'regex'
 
     @property
     def name(self):
@@ -266,13 +269,12 @@ class EnvelopeTest(namedtuple('EnvelopeTest', 'envelope_part key match_type addr
         return super().__new__(cls, envelope_part, key, match_type, address_part, comparator)
 
     def requires(self):
+        yield from super().requires()
         yield 'envelope'
         # TODO: Plugin system?
         if self.address_part == ':detail':
             # RFC 5233: Subaddress extension
             yield 'subaddress'
-        if self.match_type == ':regex':
-            yield 'regex'
         if self.match_type == ':matches':
             yield 'variables'
 
@@ -317,11 +319,9 @@ class HeaderTest(namedtuple('HeaderTest', 'header key match_type comparator'), C
         return super().__new__(cls, header, key, match_type, comparator)
 
     def requires(self):
+        yield from super().requires()
         if self.match_type == ':matches':
             yield 'variables'
-        if self.match_type == ':regex':
-            # https://datatracker.ietf.org/doc/html/draft-murchison-sieve-regex-08
-            yield 'regex'
 
     @property
     def name(self):
@@ -350,7 +350,7 @@ class NotTest(namedtuple('NotTest', 'test'), Command):
         return 'not ' + str(self.test)
 
 class TrueTest(Command):
-    """RFC 5228 Sec 5.6"""
+    """RFC 5228 Sec 5.10"""
     def __str__(self):
         return 'true'
 
@@ -378,9 +378,8 @@ class StringTest(namedtuple('StringTest', 'source key match_type comparator'), C
         return super().__new__(cls, source, key, match_type, comparator)
 
     def requires(self):
+        yield from super().requires()
         yield 'variables'
-        if self.match_type == ':count':
-            yield 'relational'
 
     def __str__(self):
         s = 'string'
@@ -471,10 +470,8 @@ class CurrentDateTest(namedtuple('CurrentDateText', 'date_part key zone original
         return super().__new__(cls, date_part, key, zone, originalzone, comparator, match_type)
 
     def requires(self):
+        yield from super().requires()
         yield 'date'
-        if self.match_type.startswith(':value'):
-            # RFC 5231 Sec 4.1
-            yield 'relational'
 
     def __str__(self):
         s = 'currentdate'
