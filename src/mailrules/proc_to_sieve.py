@@ -278,7 +278,7 @@ def Action(flags, action, context):
     elif isinstance(action, procmailrc.Pipe):
         try:
             yield from parse_cmdline(context, action.command)
-            if not flags.get('c', False):
+            if not (flags.get('c', False) or flags.get('f', False)):
                 yield sieve.DiscardAction()
                 yield sieve.StopControl()
         except ShellCommandException as e:
@@ -395,7 +395,7 @@ class ProcmailContext:
 ######################################################################
 
 def Recipe(recipe, context):
-    unsupported_flags = ''.join(f for f in 'DAaEef' if f in recipe.flags)
+    unsupported_flags = ''.join(f for f in 'DAaEe' if f in recipe.flags)
     if unsupported_flags:
         yield from context.context_chain(
             FIXME("Unsupported recipe flag {}".format(unsupported_flags), placeholder=sieve.FalseTest()),
