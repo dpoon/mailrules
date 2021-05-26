@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from collections import namedtuple
+from itertools import tee, zip_longest
 import re
 
 ######################################################################
@@ -547,17 +548,35 @@ class Script(Command):
             yield from c.requires()
 
     def add_command(self, command):
-        name = command.name
-        if name:
-            self.commands.append(Comment('rule:[{}]'.format(name)))
         self.commands.append(command)
+
+    @staticmethod
+    def _optimize(commands):
+        """
+        Remove If controls with no body that aren't followed by an Else control.
+        """
+        commands, next_commands = tee(commands)
+        next(next_commands, None)
+        for c, next_c in zip_longest(commands, next_commands):
+            if not(type(c) in (IfControl, ElsifControl) and
+                   all(isinstance(innercmd, Comment) for innercmd in list(c.command)) and
+                   type(next_c) not in (ElsifControl, ElseControl)):
+                yield c
+
+    @staticmethod
+    def _add_name_comments(commands):
+        for c in commands:
+            name = c.name
+            if name:
+                yield Comment('rule:[{}]'.format(name))
+            yield c
 
     def __str__(self):
         out = []
         requirements = sorted(set(self.requires()))
         if requirements:
             out.append(RequireControl(requirements))
-        out.extend(self.commands)
+        out.extend(self._add_name_comments(self._optimize(self.commands)))
         if out and isinstance(out[-1], StopControl):
             # A final stop is superfluous
             out.pop()
