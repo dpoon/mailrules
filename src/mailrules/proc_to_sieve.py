@@ -52,7 +52,6 @@ class RecipeMatch(namedtuple('RecipeMatch', 'flags conditions action')):
             )
         )
 
-IS_SPAMC_RUN = RecipeMatch(action=procmailrc.Pipe(command='spamc -f', var=None))
 IS_ERRCHECK = RecipeMatch(flags='e', conditions=[], action=[
     procmailrc.Assignment(variable='EXITCODE', assign='=', value='$?')
 ])
@@ -470,7 +469,7 @@ def Procmailrc(procmailrc_path, context):
                 datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
             ))
 
-    procmail_rule_iter = filter(lambda r: not(IS_SPAMC_RUN(r) or IS_ERRCHECK(r)), procmail_rules)
+    procmail_rule_iter = filter(lambda r: not IS_ERRCHECK(r), procmail_rules)
 
     for rule in procmail_rule_iter:
         yield from ProcmailrcGeneral([rule], context)

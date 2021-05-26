@@ -90,8 +90,11 @@ class Comment(namedtuple('Comment', 'text'), Command):
         else:
             return '# ' + self.text
 
-class IfControl(namedtuple('IfControl', 'test command'), Command):
+class IfControl(namedtuple('IfControl', 'test command rule_name'), Command):
     """RFC 5228 Sec 3.1"""
+    def __new__(cls, test, command, rule_name=None):
+        return super().__new__(cls, test, command, rule_name)
+
     def requires(self):
         yield from self.test.requires()
         for c in make_list(self.command):
@@ -99,6 +102,8 @@ class IfControl(namedtuple('IfControl', 'test command'), Command):
 
     @property
     def name(self):
+        if self.rule_name:
+            return self.rule_name
         return next(filter(None, (cmd.name for cmd in make_list(self.command))), self.test.name)
 
     def __str__(self):
@@ -495,6 +500,48 @@ class CurrentDateTest(namedtuple('CurrentDateText', 'date_part key zone original
             s += ' :originalzone'
         s += ' {0} {1}'.format(quote(self.date_part), string_list(self.key))
         return s
+
+######################################################################
+
+class AddHeaderAction(namedtuple('AddHeaderAction', 'field value last'), Command):
+    """RFC 5293 Sec 4"""
+    def __new__(cls, field, value, last=''):
+        return super().__new__(cls, field, value, last)
+
+    def requires(self):
+        yield 'editheader'
+
+    def __str__(self):
+        s = 'addheader'
+        if self.last:
+            s += ' :last'
+        s += ' ' + quote(self.field)
+        s += ' ' + quote(self.value)
+        return s + ';'
+
+class DeleteHeaderAction(namedtuple('DeleteHeaderAction', 'field value_patterns comparator match_type index last'), Command):
+    """RFC 5293 Sec 5"""
+    def __new__(cls, field, value_patterns=None, comparator='i;ascii-casemap', match_type=':is', index=None, last=''):
+        return super().__new__(cls, field, value_patterns, comparator, match_type, index, last)
+
+    def requires(self):
+        yield from super().requires()
+        yield 'editheader'
+
+    def __str__(self):
+        s = 'deleteheader'
+        if self.index:
+            s += ' :index {!d}'.format(self.index)
+            if self.last:
+                s += ' :last'
+        if self.comparator != 'i;ascii-casemap':
+            s += ' :comparator ' + quote(self.comparator)
+        if self.match_type != ':is':
+            s += ' ' + self.match_type
+        s += ' ' + quote(self.field)
+        if self.value_patterns:
+            s += ' ' + string_list(self.value_patterns)
+        return s + ';'
 
 ######################################################################
 

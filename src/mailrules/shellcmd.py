@@ -19,6 +19,7 @@ from datetime import datetime
 import email
 import email.policy
 from email.utils import formataddr, parseaddr
+from itertools import product
 import os.path
 import re
 import shlex
@@ -88,6 +89,96 @@ def Procmail(procmail_context, args):
             )
         except OSError as e:
             raise ShellCommandException(str(e))
+
+######################################################################
+
+def SpamAssassin(procmail_context, args):
+    """
+    Emulation for reading ~/.spamassassin/user_prefs to convert directives into
+    Sieve rules that override SpamAssassin results.
+
+    We presume that the message has already been passed through SpamAssassin by
+    the time the Sieve filter is executed, and that such execution of
+    SpamAssassin is in a global rather than a per-user context, such that it
+    does not respect the user's personal configuration in
+    ~/.spamassassin/user_prefs.                                                           
+                                                                                                                           
+    Therefore, if procmail contains an invocation of spamc, the Sieve script
+    will instead manipulate the message's SpamAssassin-produced headers to make
+    it look like spam (effectively blacklisting it) or look like ham
+    (effectively whitelisting it).                      
+
+    https://spamassassin.apache.org/doc/Mail_SpamAssassin_Conf.html
+    """
+    ACTIONS = {
+        'blacklist': [
+            sieve.DeleteHeaderAction('X-Spam-Flag'),
+            sieve.AddHeaderAction('X-Spam-Flag', 'YES'),
+            sieve.DeleteHeaderAction('X-Spam-Level'),
+            sieve.AddHeaderAction('X-Spam-Level', '*' * 99),
+            sieve.DeleteHeaderAction('X-Spam-Status'),
+            sieve.AddHeaderAction('X-Spam-Status', 'Yes, score=100.0 required=5.0'),
+        ],
+        'whitelist': [
+            sieve.DeleteHeaderAction('X-Spam-Flag'),
+            sieve.DeleteHeaderAction('X-Spam-Level'),
+            sieve.DeleteHeaderAction('X-Spam-Status'),
+        ],
+    }
+    HEADER_TESTS = {
+        'from': [
+            #'Envelope-Sender', Forbidden AddressTest
+            'Resent-Sender',
+            #'X-Envelope-From', Forbidden AddressTest
+            'From',
+        ],
+        'to': [
+            'To',
+            'Cc',
+            'Apparently-To',
+            'Delivered-To',
+            #'Envelope-Recipients', Forbidden AddressTest
+            #'Apparently-Resent-To', Forbidden AddressTest
+            #'X-Envelope-To', Forbidden AddressTest
+            #'Envelope-To', Forbidden AddressTest
+            #'X-Delivered-To', Forbidden AddressTest
+            'X-Original-To',
+            #'X-Rcpt-To', Forbidden AddressTest
+            #'X-Real-To', Forbidden AddressTest
+        ],
+    }
+    WB_LIST_KEYWORDS = ['{}_{}'.format(action, test) for action, test in product(ACTIONS, HEADER_TESTS)]
+
+    def user_pref_directives():
+        try:
+            with open(procmail_context.resolve_path('.spamassassin/user_prefs')) as f:
+                for line in f:
+                    match = re.match(r'\s*(?P<keyword>[^#\s]+)\s+(?P<value>[^#]*)', line.rstrip())
+                    if match:
+                        yield match.group('keyword'), match.group('value')
+        except OSError:
+            pass
+
+    def collated_user_prefs(directives):
+        prefs = {}
+        for keyword, value in directives:
+            if keyword in WB_LIST_KEYWORDS:
+                prefs.setdefault(keyword, []).extend(re.split(r'[,\s]+', value))
+        return prefs
+
+    wb_lists = collated_user_prefs(user_pref_directives())
+    for keyword in WB_LIST_KEYWORDS:
+        if wb_lists.get(keyword):
+            action, header_test = keyword.split('_', 1)
+            yield sieve.IfControl(
+                sieve.AddressTest(
+                    HEADER_TESTS[header_test],
+                    wb_lists[keyword],
+                    match_type=':matches'
+                ),
+                ACTIONS[action],
+                rule_name="SpamAssassin override {}".format(keyword)
+            )
 
 ######################################################################
 
@@ -191,6 +282,7 @@ def Vacation(procmail_context, args):
 SUPPORTED_COMMANDS = {
     'bin/is_away': IsAway,
     '/usr/bin/procmail': Procmail,
+    '/usr/bin/spamc': SpamAssassin,
     '/usr/bin/vacation': Vacation,
 }
 
