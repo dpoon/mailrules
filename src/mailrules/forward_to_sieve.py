@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from datetime import datetime, timezone
+from email.utils import getaddresses
 from itertools import chain
 import os
 import re
@@ -93,10 +94,9 @@ def ForwardFile(path, extension, context):
         return dest in (me, '\\' + me, me + '@' + context.initial.email_domain)
     def interpret(destinations, keep_copy):
         for dest in destinations:
-            dest = re.sub(r'^"(.*)"$', r'\g<1>', dest) # Dequote
             if is_to_myself(dest):
                 pass
-            elif dest == '/dev/null':
+            elif dest == os.path.devnull:
                 pass
             elif dest.startswith('|'):
                 try:
@@ -104,7 +104,7 @@ def ForwardFile(path, extension, context):
                 except ShellCommandException as e:
                     yield proc_to_sieve.FIXME('{}: ({})'.format(str(e), dest))
             elif dest.startswith(':include:'):
-                yield proc_to_sieve.FIXME(dest) # Pipes not supported
+                yield proc_to_sieve.FIXME(dest) # Includes not supported
             elif mailbox_name(dest, context):
                 yield sieve.FileintoAction(mailbox_name(dest, context), copy=keep_copy)
             else:
@@ -114,11 +114,6 @@ def ForwardFile(path, extension, context):
 
     try:
         with open(path) as f:
-            contents = ' '.join(
-                line.strip()
-                for line in f
-                if not line.startswith('#')
-            )
             if not context.emit_provenance_comments:
                 provenance = []
             else:
@@ -130,10 +125,19 @@ def ForwardFile(path, extension, context):
                         datetime.fromtimestamp(mtime, tz).strftime('%Y-%m-%d %H:%M:%S %z')
                     ))
                 ]
+
+            contents = [line.rstrip() for line in f if not line.startswith('#')]
     except OSError as e:
         return True, [sieve.Comment("Error reading {} ({})".format(path, e))]
 
-    destinations = re.findall(r'\s*((?:\|\s*)?(?:"[^"]*"|[^, ])+)', contents)
+    # Fixup for not-quite-proper input that Postfix's local(8) accepts but
+    # email.utils.getaddresses() wouldn't: treat
+    #    | "/usr/bin/procmail"
+    # as
+    #    "|/usr/bin/procmail"
+    contents = [re.sub(r'\|\s*"([^"]*)"', r'"|\g<1>"', line) for line in contents]
+
+    destinations = [dest for _, dest in getaddresses(contents) if dest]
     keep_copy = (not destinations) or any(is_to_myself(e) for e in destinations)
     test = sieve.EnvelopeTest('to', extension, address_part=':detail') if extension else sieve.TrueTest()
 
