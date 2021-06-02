@@ -196,12 +196,14 @@ def Test(recipe_flags, recipe_conditions, context):
             if r.startswith('^TO_'):
                 # '^TO_' should "catch all destination specifications containing a specific address"
                 test_type = sieve.AddressTest
+                anchor_start = True
                 # The following address tests are forbidden...
                 tests -= set(['Original-To', 'Original-Cc', 'Original-Bcc', 'Apparently-Resent-To', 'X-Envelope-To'])
             else:
                 # '^TO' should "catch all destination specifications containing a specific word"
                 test_type = sieve.HeaderTest
-            rel, rhs = analyze_rhs(re.sub(r'\^TO_?(\.(?!\*)| )?', '', r))
+                anchor_start = False
+            rel, rhs = analyze_rhs(re.sub(r'\^TO_?(\.(?!\*)| )?', '', r), anchor_start)
             return test_type(sorted(tests), rhs, rel)
         return FIXME(r, placeholder=sieve.FalseTest())
 
