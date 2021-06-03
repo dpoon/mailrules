@@ -21,6 +21,7 @@ import os
 import re
 import shlex
 from mailrules import UnresolvedLocalEmailAddressException
+from mailrules.patterns import ereg_as_wildcard
 import mailrules.procmailrc as procmailrc
 from mailrules.shellcmd import parse_cmdline, ShellCommandException
 import mailrules.sieve as sieve
@@ -88,22 +89,13 @@ def Test(recipe_flags, recipe_conditions, context):
         literal_re = re.fullmatch(r'(\^)?((?:[ A-Za-z0-9@_-]|\\.)*)(\$)?', s)
         if literal_re:
             rhs_string = re.sub(r'\\(.)', r'\g<1>', literal_re.group(2))
-            if literal_re.group(1) and literal_re.group(3):
+            if anchor_start and literal_re.group(1) and literal_re.group(3):
                 return ':is', rhs_string
             else:
                 return ':contains', rhs_string
-        wildcard = re.fullmatch(r'(\^)?((?:\.\*|[ A-Za-z0-9@._-]|\\[*?\[\]])*)(\$)?', s)
+        wildcard = ereg_as_wildcard(s, anchor_start, anchor_end=False)
         if wildcard:
-            rhs_string = re.sub(
-                r'(\.\*)|(\.)|(\\[*.])|\\([?\[\]])',
-                lambda m: '*' if m.group(1) else '?' if m.group(2) else m.group(3) if m.group(3) else m.group(4),
-                wildcard.group(2)
-            )
-            if not anchor_start and not(wildcard.group(1) or rhs_string.startswith('*')):
-                rhs_string = '*' + rhs_string
-            if not(wildcard.group(3) or rhs_string.endswith('*')):
-                rhs_string = rhs_string + '*'
-            return ':matches', rhs_string
+            return ':matches', wildcard
         else:
             return ':regex', s
 
