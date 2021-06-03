@@ -122,12 +122,7 @@ def Test(recipe_flags, recipe_conditions, context):
         if envelope_from:
             rel, rhs = analyze_rhs(envelope_from.group('value_re'))
             return sieve.EnvelopeTest('from', rhs, rel)
-        literal_headers = re.fullmatch(r'\^(\()?(?P<headers>(\|?[A-Za-z0-9_-]+)*)(?(1)\):?|:)(\.(?!\*)| )?(?P<value_re>.*)', r)
-        if literal_headers:
-            headers = literal_headers.group('headers').split('|')
-            rel, rhs = analyze_rhs(literal_headers.group('value_re'))
-            return sieve.HeaderTest(headers if len(headers) > 1 else headers[0], rhs, rel)
-        elif r == '^FROM_DAEMON':
+        if r == '^FROM_DAEMON':
             FROM_DAEMON = ('('
                 'Post(ma?(st(e?r)?|n)|office)'
                 '|(send)?Mail(er)?'
@@ -205,6 +200,19 @@ def Test(recipe_flags, recipe_conditions, context):
                 anchor_start = False
             rel, rhs = analyze_rhs(re.sub(r'\^TO_?(\.(?!\*)| )?', '', r), anchor_start)
             return test_type(sorted(tests), rhs, rel)
+        else:
+            literal_headers = re.fullmatch(
+                r'\^(\()?'
+                r'(?P<headers>(\|?[A-Za-z0-9_-]+)*)'
+                r'(?(1)\))'             # Require close parenthesis if there was open parenthesis.
+                r'((?=\.\*)|: ?|\. ?)'  # Swallow colon or dot (but a dotstar would be part of value_re).
+                r'(?P<value_re>.*)',
+                r
+            )
+            if literal_headers:
+                headers = literal_headers.group('headers').split('|')
+                rel, rhs = analyze_rhs(literal_headers.group('value_re'))
+                return sieve.HeaderTest(headers if len(headers) > 1 else headers[0], rhs, rel)
         return FIXME(r, placeholder=sieve.FalseTest())
 
     def body_regexp_test(r):
