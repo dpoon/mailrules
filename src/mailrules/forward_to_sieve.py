@@ -91,9 +91,15 @@ def mailbox_name(s, context):
 def ForwardFile(path, extension, context):
     def is_to_myself(dest):
         me = context.initial.getenv('LOGNAME')
-        return dest in (me, '\\' + me, me + '@' + context.initial.email_domain)
+        return dest in (me, me + '@' + context.initial.email_domain)
     def interpret(destinations, keep_copy):
         for dest in destinations:
+            # In traditional Sendmail, a leading backslash prevents recursive
+            # alias expansion.  Postfix automatically suppresses alias
+            # expansion loops, but its emulation of Sendmail tolerates the
+            # leading backslash.  Either way, we can just ignore it.
+            dest = re.sub(r'^\\', '', dest)
+
             if is_to_myself(dest):
                 pass
             elif dest == os.path.devnull:
@@ -126,7 +132,8 @@ def ForwardFile(path, extension, context):
                     ))
                 ]
 
-            contents = [line.rstrip() for line in f if not line.startswith('#')]
+            contents = ''.join(line for line in f if not line.startswith('#'))  # Ignore comments
+            contents = re.sub('\\\\\n', '', contents).split('\n')               # Line continuations
     except OSError as e:
         return True, [sieve.Comment("Error reading {} ({})".format(path, e))]
 
